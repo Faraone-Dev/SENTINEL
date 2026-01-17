@@ -33,11 +33,12 @@ jobs:
         with:
           go-version: '1.22'
           cache: true
-          cache-dependency-path: api/go.sum
+          cache-dependency-path: api/go.mod
       - name: Go Lint
         uses: golangci/golangci-lint-action@v4
         with:
           working-directory: api
+          args: --timeout=5m
 
       # Rust
       - name: Setup Rust
