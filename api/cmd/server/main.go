@@ -799,8 +799,11 @@ func (c *ChainClient) getApprovalsEtherscan(ctx context.Context, walletAddress s
 	if len(rawResp.Result) > 0 && rawResp.Result[0] == '"' {
 		// Result is a string - this is an error or "No records found"
 		var errMsg string
-		json.Unmarshal(rawResp.Result, &errMsg)
-		log.Printf("[%s] Etherscan returned message: %s", c.ChainID, errMsg)
+		if err := json.Unmarshal(rawResp.Result, &errMsg); err != nil {
+			log.Printf("[%s] Failed to parse Etherscan message: %v", c.ChainID, err)
+		} else {
+			log.Printf("[%s] Etherscan returned message: %s", c.ChainID, errMsg)
+		}
 		return approvals, nil // Return empty, not an error
 	}
 
@@ -1045,8 +1048,14 @@ func getTokenDecimals(tokenAddress string) int {
 }
 
 // formatAllowance converts big.Int to human-readable format
+// Uses default 18 decimals - for token-specific decimals use formatAllowanceForToken
 func formatAllowance(amount *big.Int) string {
 	return formatAllowanceWithDecimals(amount, 18)
+}
+
+// formatAllowanceForToken converts big.Int to human-readable format with token-specific decimals
+func formatAllowanceForToken(amount *big.Int, tokenAddress string) string {
+	return formatAllowanceWithDecimals(amount, getTokenDecimals(tokenAddress))
 }
 
 // formatAllowanceWithDecimals converts big.Int to human-readable format with specific decimals
@@ -1702,7 +1711,7 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 // Health check
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "healthy",
 		"service": "sentinel-api",
 		"version": "1.0.0",
@@ -1782,13 +1791,13 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // Get supported chains
 func (s *Server) handleChains(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"chains": AllChains,
 	})
 }
@@ -1836,7 +1845,7 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // Batch analyze multiple contracts
@@ -1902,7 +1911,7 @@ func (s *Server) handleBatchAnalyze(w http.ResponseWriter, r *http.Request) {
 	wg.Wait()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"results": results,
 		"errors":  errors,
 		"total":   len(req.Contracts),
@@ -1964,7 +1973,9 @@ func main() {
 		log.Println("Shutting down...")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		httpServer.Shutdown(ctx)
+		if err := httpServer.Shutdown(ctx); err != nil {
+			log.Printf("Shutdown error: %v", err)
+		}
 	}()
 
 	log.Printf("🚀 Sentinel API running on http://localhost:%s", port)
