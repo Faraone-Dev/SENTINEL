@@ -1,0 +1,149 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SENTINEL SHIELD - Docker Compose Configuration
+#  Multi-container setup for the full stack
+#  Author: SENTINEL Team
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: '3.9'
+
+services:
+  # ═══════════════════════════════════════════════════════════════════════════
+  #                              GO API SERVER
+  # ═══════════════════════════════════════════════════════════════════════════
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: sentinel-api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - ANALYZER_URL=http://analyzer:5000
+      - DECOMPILER_URL=http://decompiler:3000
+      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/sentinel
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+      - analyzer
+    restart: unless-stopped
+    networks:
+      - sentinel-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #                           RUST DECOMPILER
+  # ═══════════════════════════════════════════════════════════════════════════
+  decompiler:
+    build:
+      context: ./decompiler
+      dockerfile: Dockerfile
+    container_name: sentinel-decompiler
+    ports:
+      - "3000:3000"
+    environment:
+      - RUST_LOG=info
+      - PORT=3000
+    restart: unless-stopped
+    networks:
+      - sentinel-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #                           PYTHON ANALYZER
+  # ═══════════════════════════════════════════════════════════════════════════
+  analyzer:
+    build:
+      context: ./analyzer
+      dockerfile: Dockerfile
+    container_name: sentinel-analyzer
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=5000
+    restart: unless-stopped
+    networks:
+      - sentinel-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #                           REACT FRONTEND
+  # ═══════════════════════════════════════════════════════════════════════════
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sentinel-frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://api:8080
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - sentinel-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #                           POSTGRESQL DATABASE
+  # ═══════════════════════════════════════════════════════════════════════════
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentinel-postgres
+    environment:
+      - POSTGRES_USER=sentinel
+      - POSTGRES_PASSWORD=sentinel
+      - POSTGRES_DB=sentinel
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - sentinel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  #                              REDIS CACHE
+  # ═══════════════════════════════════════════════════════════════════════════
+  redis:
+    image: redis:7-alpine
+    container_name: sentinel-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - sentinel-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#                              VOLUMES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+volumes:
+  postgres_data:
+  redis_data:
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#                              NETWORKS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+networks:
+  sentinel-network:
+    driver: bridge

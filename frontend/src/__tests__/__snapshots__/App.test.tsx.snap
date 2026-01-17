@@ -1,0 +1,20 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Snapshots > should match RiskGauge snapshot 1`] = `
+<div>
+  <div
+    class="risk-gauge"
+  >
+    <div
+      class="score"
+    >
+      50
+    </div>
+    <div
+      class="label"
+    >
+      SAFE
+    </div>
+  </div>
+</div>
+`;

@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              SENTINEL SHIELD - PRO STYLES
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #0f172a;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* SENTINEL Brand Colors */
+  --sentinel-primary: #00FFD1;
+  --sentinel-secondary: #00D4FF;
+  --sentinel-accent: #3B82F6;
+  --sentinel-glow: rgba(0, 255, 209, 0.5);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              CURVED TEXT STYLES
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.sentinel-text {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 72px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+}
+
+.sentinel-text-glow {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 72px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              GLASSMORPHISM
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-dark {
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              GLOW EFFECTS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.glow-cyan {
+  box-shadow: 0 0 30px rgba(0, 255, 209, 0.3),
+              0 0 60px rgba(0, 255, 209, 0.1);
+}
+
+.glow-blue {
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.3),
+              0 0 60px rgba(59, 130, 246, 0.1);
+}
+
+.glow-red {
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.3),
+              0 0 60px rgba(239, 68, 68, 0.1);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 20px rgba(0, 255, 209, 0.8),
+               0 0 40px rgba(0, 255, 209, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              GRADIENT BORDERS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.gradient-border {
+  position: relative;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #00FFD1, #00D4FF, #3B82F6);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 255, 209, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 255, 209, 0.8),
+                0 0 60px rgba(0, 255, 209, 0.4);
+  }
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-scan-line {
+  animation: scan-line 2s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              SCROLLBAR
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #00FFD1, #3B82F6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #00FFD1, #00D4FF);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              SCAN BUTTON
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.scan-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.scan-button:hover::before {
+  left: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+                              CARD HOVER EFFECTS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3),
+              0 0 30px rgba(0, 255, 209, 0.1);
+}

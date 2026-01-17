@@ -1,0 +1,73 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SENTINEL SHIELD - Foundry Configuration
+#  Author: SENTINEL Team
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+cache_path = "cache"
+
+# Compiler settings
+solc = "0.8.24"
+optimizer = true
+optimizer_runs = 10000
+via_ir = true
+
+# Gas settings
+gas_reports = ["*"]
+gas_limit = 30000000
+
+# Formatter
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "all"
+quote_style = "double"
+number_underscore = "thousands"
+
+# Testing
+fuzz = { runs = 256, max_test_rejects = 65536 }
+invariant = { runs = 256, depth = 15, fail_on_revert = true }
+
+# EVM settings
+evm_version = "cancun"
+bytecode_hash = "none"
+
+[profile.ci]
+fuzz = { runs = 10000 }
+verbosity = 4
+
+[profile.release]
+optimizer = true
+optimizer_runs = 10000
+via_ir = true
+
+# RPC endpoints
+[rpc_endpoints]
+mainnet = "${ETH_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+polygon = "${POLYGON_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
+optimism = "${OPTIMISM_RPC_URL}"
+base = "${BASE_RPC_URL}"
+bsc = "${BSC_RPC_URL}"
+
+# Etherscan API keys for verification
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+polygon = { key = "${POLYGONSCAN_API_KEY}" }
+arbitrum = { key = "${ARBISCAN_API_KEY}" }
+optimism = { key = "${OPTIMISM_ETHERSCAN_API_KEY}" }
+base = { key = "${BASESCAN_API_KEY}" }
+bsc = { key = "${BSCSCAN_API_KEY}" }
+
+# Dependencies
+[dependencies]
+forge-std = { version = "1.7.0" }
+openzeppelin-contracts = { version = "5.0.0" }

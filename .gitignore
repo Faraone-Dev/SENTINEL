@@ -1,0 +1,72 @@
+# SENTINEL SHIELD
+# https://github.com/sentinel-team/sentinel
+
+# Dependencies
+node_modules/
+vendor/
+target/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build outputs
+dist/
+build/
+out/
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Contracts
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+config/.env
+!config/.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+*.coverage
+coverage.xml
+htmlcov/
+
+# Secrets - NEVER COMMIT THESE
+*.pem
+*.key
+private_key*
+secret*
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Docker
+.docker/
