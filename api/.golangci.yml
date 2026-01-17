@@ -1,5 +1,7 @@
-# golangci-lint configuration
+# golangci-lint configuration v2
 # https://golangci-lint.run/usage/configuration/
+
+version: "2"
 
 run:
   timeout: 5m
@@ -13,27 +15,13 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-  disable:
-    - deadcode   # deprecated
-    - varcheck   # deprecated
-    - structcheck # deprecated
 
-linters-settings:
-  errcheck:
-    check-type-assertions: false
-    check-blank: false
-  govet:
-    enable-all: false
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
 
 issues:
-  exclude-rules:
-    # Ignore long lines in generated files
-    - path: _test\.go
-      linters:
-        - errcheck
-    # Allow fmt.Println in main
-    - path: main\.go
-      linters:
-        - forbidigo
   max-issues-per-linter: 50
   max-same-issues: 10
