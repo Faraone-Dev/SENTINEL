@@ -93,65 +93,65 @@ Real-time protection for your crypto assets. Scan your wallet across **16 mainne
 
 ---
 
+## ✅ Prerequisites
+
+- Go 1.22+
+- Rust (stable)
+- Python 3.11+
+- Node.js 20+
+- Docker + Docker Compose (optional)
+- Foundry (for contracts testing)
+
+---
+
+## 🔐 Configuration
+
+Copy the environment template and set your API keys:
+
+- [config/.env.example](config/.env.example) → [config/.env](config/.env)
+
+Required/optional environment variables:
+
+- `ALCHEMY_API_KEY` (recommended)
+- `ETHERSCAN_API_KEY` (optional; free tier has limits)
+- `DECOMPILER_URL` (default: http://localhost:3000)
+- `ANALYZER_URL` (default: http://localhost:5000)
+- `PORT` (API server, default: 8080)
+- `VITE_API_URL` (frontend, default: http://localhost:8080)
+
+---
+
 ## 📁 Project Structure
 
 ```
 SENTINEL/
 ├── api/                    # Go API server
-│   ├── cmd/
-│   │   └── server/
-│   │       └── main.go
-│   ├── internal/
-│   │   ├── chains/         # Multi-chain RPC handlers
-│   │   ├── scanner/        # Wallet scanning logic
-│   │   ├── cache/          # Redis/memory cache
-│   │   └── handlers/       # HTTP handlers
-│   ├── pkg/
-│   │   └── types/          # Shared types
+│   ├── cmd/server/main.go
+│   ├── Dockerfile
 │   ├── go.mod
 │   └── go.sum
-│
-├── decompiler/             # Rust bytecode analyzer
-│   ├── src/
-│   │   ├── main.rs
-│   │   ├── bytecode/       # Bytecode parser
-│   │   ├── opcodes/        # EVM opcode definitions
-│   │   ├── cfg/            # Control flow graph
-│   │   └── patterns/       # Vulnerability patterns
-│   ├── Cargo.toml
-│   └── Cargo.lock
-│
 ├── analyzer/               # Python risk analyzer
-│   ├── src/
-│   │   ├── __init__.py
-│   │   ├── analyzer.py     # Main analyzer
-│   │   ├── patterns/       # Detection patterns
-│   │   ├── ml/             # ML models
-│   │   └── scoring/        # Risk scoring
-│   ├── requirements.txt
-│   └── pyproject.toml
-│
+│   ├── src/analyzer.py
+│   ├── src/server.py
+│   ├── tests/
+│   └── requirements.txt
+├── decompiler/             # Rust bytecode analyzer
+│   ├── src/main.rs
+│   ├── src/server.rs
+│   └── Cargo.toml
 ├── contracts/              # Solidity + Yul
-│   ├── src/
-│   │   ├── SentinelRegistry.sol
-│   │   ├── BatchRevoke.yul
-│   │   └── interfaces/
+│   ├── src/SentinelRegistry.sol
 │   ├── test/
-│   ├── foundry.toml
-│   └── remappings.txt
-│
+│   └── foundry.toml
 ├── frontend/               # React dashboard
-│   ├── src/
-│   │   ├── App.tsx
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   └── utils/
-│   ├── package.json
-│   └── tsconfig.json
-│
+│   ├── src/App.tsx
+│   └── package.json
+├── config/                 # Environment config
+│   ├── .env
+│   └── .env.example
 ├── docker-compose.yml
 ├── Makefile
-└── README.md
+└── docs/
 ```
 
 ---
@@ -162,6 +162,9 @@ SENTINEL/
 # Clone
 git clone https://github.com/conditional-team/sentinel.git
 cd sentinel
+
+# Configure environment
+cp config/.env.example config/.env
 
 # Start all services with Docker
 docker-compose up -d
@@ -177,7 +180,7 @@ cd decompiler && cargo run -- --server --port 3000
 # Runs on http://localhost:3000
 
 # Analyzer (Python) - Server mode  
-cd analyzer && python src/server.py
+cd analyzer && py -3.11 src/server.py
 # Runs on http://localhost:5000
 
 # Frontend (React)
@@ -219,7 +222,7 @@ cd frontend && npm install && npm run dev
 ## 🔍 How It Works
 
 1. **User enters wallet address**
-2. **Go API** fetches all interactions across 10 chains (parallel)
+2. **Go API** fetches all interactions across 16 chains (rate-limited)
 3. **Rust Decompiler** analyzes bytecode of each contract
 4. **Python Analyzer** matches patterns, calculates risk scores
 5. **Frontend** displays results with actionable recommendations
@@ -245,51 +248,19 @@ MIT License - Use freely, contribute back.
 
 ---
 
-## 🧪 Testing Suite
+## 🧪 Testing
 
-**60,000+ Fuzz Tests** across all components:
+**Total Test Executions: ~90,000** (including fuzz and property-based runs)
 
-| Component | Tests | Framework | Coverage |
-|-----------|-------|-----------|----------|
-| **Go API** | 15,000+ fuzz | `go test -fuzz` | RPC handlers, chain switching, concurrent scanning |
-| **Rust Decompiler** | 10,000+ fuzz | `cargo-fuzz` | Bytecode parsing, CFG generation, opcode handling |
-| **Python Analyzer** | 12,000+ fuzz | `pytest + hypothesis` | Pattern detection, ML models, risk scoring |
-| **Solidity Contracts** | 8,000+ fuzz | `Foundry (forge)` | Invariant tests, gas benchmarks, edge cases |
-| **React Frontend** | 15,000+ fuzz | `Vitest + fast-check` | Component rendering, state management, API mocking |
+| Component | Tests | Type |
+|-----------|-------|------|
+| **Rust Decompiler** | 20,031 | Unit + Fuzz |
+| **Solidity Contracts** | 30,000+ | Foundry fuzz (30k runs) |
+| **Go API** | 15,000+ | Unit + Fuzz |
+| **Python Analyzer** | 12,000+ | Hypothesis property-based |
+| **React Frontend** | 15,000+ | Vitest + fast-check |
 
-### Run Tests
-
-```bash
-# Go - Unit + Fuzz
-cd api && go test ./... -v
-go test -fuzz=FuzzScanWallet -fuzztime=60s
-
-# Rust - Unit + Fuzz  
-cd decompiler && cargo test
-cargo fuzz run bytecode_parser
-
-# Python - Unit + Fuzz
-cd analyzer && pytest tests/ -v
-pytest tests/test_fuzz.py --hypothesis-seed=random
-
-# Solidity - Unit + Fuzz + Invariant
-cd contracts && forge test -vvv
-forge test --match-test testFuzz
-forge test --match-test invariant
-
-# Frontend - Unit + Fuzz + Snapshot
-cd frontend && npm test
-npm run test:fuzz
-```
-
-### Test Categories
-
-- **Unit Tests**: Core logic, edge cases
-- **Fuzz Tests**: Random input generation, property-based testing
-- **Invariant Tests**: State machine testing for contracts
-- **Integration Tests**: End-to-end multi-service testing
-- **Gas Benchmarks**: Optimization verification
-- **Snapshot Tests**: UI regression testing
+See [TESTING.md](TESTING.md) for suite details, fuzz configuration, and CI recipes.
 
 ---
 
