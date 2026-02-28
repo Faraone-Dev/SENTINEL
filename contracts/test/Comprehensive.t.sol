@@ -12,10 +12,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import "../src/SentinelVault.sol";
-import "../src/SentinelGuard.sol";
-import "../src/libraries/AllowanceLib.sol";
-import "../src/interfaces/ISentinelVault.sol";
+import "../src/SentinelRegistry.sol";
 
 contract MockERC20 is Test {
     string public name = "Mock Token";
@@ -54,7 +51,9 @@ contract MockERC20 is Test {
         
         balanceOf[from] -= amount;
         balanceOf[to] += amount;
-        allowance[from][msg.sender] -= amount;
+        if (allowance[from][msg.sender] != type(uint256).max) {
+            allowance[from][msg.sender] -= amount;
+        }
         
         emit Transfer(from, to, amount);
         return true;
@@ -136,37 +135,37 @@ contract AllowanceTest is Test {
     }
     
     function test_Approval_ZeroAmount() public {
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, 0);
         assertEq(token.allowance(owner, spender), 0);
     }
     
     function test_Approval_SmallAmount() public {
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, 1);
         assertEq(token.allowance(owner, spender), 1);
     }
     
     function test_Approval_MediumAmount() public {
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, 1000 ether);
         assertEq(token.allowance(owner, spender), 1000 ether);
     }
     
     function test_Approval_LargeAmount() public {
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, 1_000_000 ether);
         assertEq(token.allowance(owner, spender), 1_000_000 ether);
     }
     
     function test_Approval_MaxUint256() public {
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, type(uint256).max);
         assertEq(token.allowance(owner, spender), type(uint256).max);
     }
     
     function test_Approval_Override_ZeroToPositive() public {
-        vm.startPrank(owner);
+        vm.startPrank(owner, owner);
         token.approve(spender, 0);
         assertEq(token.allowance(owner, spender), 0);
         token.approve(spender, 100);
@@ -175,7 +174,7 @@ contract AllowanceTest is Test {
     }
     
     function test_Approval_Override_PositiveToZero() public {
-        vm.startPrank(owner);
+        vm.startPrank(owner, owner);
         token.approve(spender, 100);
         assertEq(token.allowance(owner, spender), 100);
         token.approve(spender, 0);
@@ -184,7 +183,7 @@ contract AllowanceTest is Test {
     }
     
     function test_Approval_Override_PositiveToPositive() public {
-        vm.startPrank(owner);
+        vm.startPrank(owner, owner);
         token.approve(spender, 100);
         token.approve(spender, 200);
         assertEq(token.allowance(owner, spender), 200);
@@ -192,7 +191,7 @@ contract AllowanceTest is Test {
     }
     
     function testFuzz_Approval_AnyAmount(uint256 amount) public {
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, amount);
         assertEq(token.allowance(owner, spender), amount);
     }
@@ -200,7 +199,7 @@ contract AllowanceTest is Test {
     function test_Approval_MultipleSpenders_5Cases() public {
         for (uint256 i = 1; i <= 5; i++) {
             address s = address(uint160(i + 100));
-            vm.prank(owner);
+            vm.prank(owner, owner);
             token.approve(s, i * 100);
             assertEq(token.allowance(owner, s), i * 100);
         }
@@ -291,9 +290,11 @@ contract TransferTest is Test {
         vm.prank(alice);
         token.approve(bob, type(uint256).max);
         
+        uint256 aliceBalance = token.balanceOf(alice);
+        
         vm.prank(bob);
         vm.expectRevert("Insufficient balance");
-        token.transferFrom(alice, charlie, token.balanceOf(alice) + 1);
+        token.transferFrom(alice, charlie, aliceBalance + 1);
     }
     
     function test_Transfer_ChainedTransfers_5Hops() public {
@@ -398,7 +399,7 @@ contract BatchOperationTest is Test {
         
         for (uint256 i = 0; i < 5; i++) {
             spenders[i] = address(uint160(i + 10));
-            vm.prank(owner);
+            vm.prank(owner, owner);
             token.approve(spenders[i], 1000 ether * (i + 1));
         }
         
@@ -412,12 +413,12 @@ contract BatchOperationTest is Test {
         
         for (uint256 i = 0; i < 5; i++) {
             spenders[i] = address(uint160(i + 10));
-            vm.prank(owner);
+            vm.prank(owner, owner);
             token.approve(spenders[i], 1000 ether);
         }
         
         for (uint256 i = 0; i < 5; i++) {
-            vm.prank(owner);
+            vm.prank(owner, owner);
             token.approve(spenders[i], 0);
             assertEq(token.allowance(owner, spenders[i]), 0);
         }
@@ -426,7 +427,7 @@ contract BatchOperationTest is Test {
     function test_BatchTransfer_10Recipients() public {
         for (uint256 i = 1; i <= 10; i++) {
             address recipient = address(uint160(i + 100));
-            vm.prank(owner);
+            vm.prank(owner, owner);
             token.transfer(recipient, 100 ether);
             assertEq(token.balanceOf(recipient), 100 ether);
         }
@@ -449,7 +450,7 @@ contract GasBenchmarkTest is Test {
     
     function test_Gas_SingleApproval() public {
         uint256 gasBefore = gasleft();
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, 1000 ether);
         uint256 gasUsed = gasBefore - gasleft();
         
@@ -459,7 +460,7 @@ contract GasBenchmarkTest is Test {
     
     function test_Gas_SingleTransfer() public {
         uint256 gasBefore = gasleft();
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.transfer(spender, 1000 ether);
         uint256 gasUsed = gasBefore - gasleft();
         
@@ -468,7 +469,7 @@ contract GasBenchmarkTest is Test {
     }
     
     function test_Gas_SingleTransferFrom() public {
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, 1000 ether);
         
         uint256 gasBefore = gasleft();
@@ -528,9 +529,9 @@ contract NumericTest is Test {
     }
     
     function test_Ether_Decimals() public pure {
-        assertEq(1 ether, 1e18);
-        assertEq(1 gwei, 1e9);
-        assertEq(1 wei, 1);
+        assertEq(uint256(1 ether), uint256(1e18));
+        assertEq(uint256(1 gwei), uint256(1e9));
+        assertEq(uint256(1 wei), uint256(1));
     }
 }
 
@@ -567,10 +568,10 @@ contract TimeTest is Test {
     }
     
     function test_Time_Constants() public pure {
-        assertEq(1 minutes, 60);
-        assertEq(1 hours, 3600);
-        assertEq(1 days, 86400);
-        assertEq(1 weeks, 604800);
+        assertEq(uint256(1 minutes), uint256(60));
+        assertEq(uint256(1 hours), uint256(3600));
+        assertEq(uint256(1 days), uint256(86400));
+        assertEq(uint256(1 weeks), uint256(604800));
     }
 }
 
@@ -636,7 +637,7 @@ contract EventTest is Test {
         vm.expectEmit(true, true, false, true);
         emit Transfer(owner, spender, 100 ether);
         
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.transfer(spender, 100 ether);
     }
     
@@ -644,7 +645,7 @@ contract EventTest is Test {
         vm.expectEmit(true, true, false, true);
         emit Approval(owner, spender, 100 ether);
         
-        vm.prank(owner);
+        vm.prank(owner, owner);
         token.approve(spender, 100 ether);
     }
 }

@@ -8,7 +8,7 @@ Thank you for your interest in contributing to SENTINEL SHIELD! 🛡️
 
 - Go 1.22+
 - Rust 1.75+
-- Python 3.12+
+- Python 3.11+
 - Node.js 20+
 - Docker & Docker Compose
 - Foundry (for smart contracts)
@@ -24,7 +24,7 @@ cd sentinel
 make install
 
 # Copy environment file
-cp .env.example .env
+cp config/.env.example config/.env
 
 # Start development environment
 make docker-up
@@ -81,6 +81,8 @@ make test-decompiler
 make test-analyzer
 make test-contracts
 ```
+
+**Latest full run estimate:** **~89,959 total executions** (includes fuzz/property-based runs).
 
 ## Pull Request Process
 

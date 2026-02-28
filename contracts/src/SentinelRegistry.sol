@@ -353,27 +353,26 @@ contract SentinelRegistry {
         address spender
     ) external view returns (uint256) {
         // allowance(address,address) selector: 0xdd62ed3e
-        bytes memory result;
-        
+        uint256 allowance;
+
         assembly {
             // Allocate memory
             let ptr := mload(0x40)
-            
+
             // Store selector
             mstore(ptr, 0xdd62ed3e00000000000000000000000000000000000000000000000000000000)
             mstore(add(ptr, 4), owner)
             mstore(add(ptr, 36), spender)
-            
+
             // Static call
             let success := staticcall(gas(), token, ptr, 68, ptr, 32)
-            
+
             if success {
-                // Return the value
-                result := mload(ptr)
+                allowance := mload(ptr)
             }
         }
-        
-        return uint256(bytes32(result));
+
+        return allowance;
     }
     
     /// @notice Check if an operator is approved

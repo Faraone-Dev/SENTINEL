@@ -28,6 +28,15 @@ use petgraph::graph::{DiGraph, NodeIndex};
 
 mod server;
 
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+mod extended_tests;
+
+#[cfg(test)]
+mod omni_tests;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              CLI ARGUMENTS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -201,8 +210,6 @@ pub enum Opcode {
     REVERT = 0xFD,
     INVALID = 0xFE,
     SELFDESTRUCT = 0xFF,
-    
-    UNKNOWN = 0xFE,
 }
 
 impl From<u8> for Opcode {
@@ -213,16 +220,64 @@ impl From<u8> for Opcode {
             0x02 => Opcode::MUL,
             0x03 => Opcode::SUB,
             0x04 => Opcode::DIV,
+            0x05 => Opcode::SDIV,
+            0x06 => Opcode::MOD,
+            0x07 => Opcode::SMOD,
+            0x08 => Opcode::ADDMOD,
+            0x09 => Opcode::MULMOD,
+            0x0A => Opcode::EXP,
+            0x0B => Opcode::SIGNEXTEND,
+            0x10 => Opcode::LT,
+            0x11 => Opcode::GT,
+            0x12 => Opcode::SLT,
+            0x13 => Opcode::SGT,
+            0x14 => Opcode::EQ,
+            0x15 => Opcode::ISZERO,
+            0x16 => Opcode::AND,
+            0x17 => Opcode::OR,
+            0x18 => Opcode::XOR,
+            0x19 => Opcode::NOT,
+            0x1A => Opcode::BYTE,
+            0x1B => Opcode::SHL,
+            0x1C => Opcode::SHR,
+            0x1D => Opcode::SAR,
             0x20 => Opcode::SHA3,
+            0x30 => Opcode::ADDRESS,
             0x31 => Opcode::BALANCE,
             0x32 => Opcode::ORIGIN,
             0x33 => Opcode::CALLER,
             0x34 => Opcode::CALLVALUE,
             0x35 => Opcode::CALLDATALOAD,
+            0x36 => Opcode::CALLDATASIZE,
+            0x37 => Opcode::CALLDATACOPY,
+            0x38 => Opcode::CODESIZE,
+            0x39 => Opcode::CODECOPY,
+            0x3A => Opcode::GASPRICE,
+            0x3B => Opcode::EXTCODESIZE,
+            0x3C => Opcode::EXTCODECOPY,
+            0x3D => Opcode::RETURNDATASIZE,
+            0x3E => Opcode::RETURNDATACOPY,
+            0x3F => Opcode::EXTCODEHASH,
+            0x40 => Opcode::BLOCKHASH,
+            0x41 => Opcode::COINBASE,
+            0x42 => Opcode::TIMESTAMP,
+            0x43 => Opcode::NUMBER,
+            0x44 => Opcode::DIFFICULTY,
+            0x45 => Opcode::GASLIMIT,
+            0x46 => Opcode::CHAINID,
+            0x47 => Opcode::SELFBALANCE,
+            0x48 => Opcode::BASEFEE,
+            0x50 => Opcode::POP,
+            0x51 => Opcode::MLOAD,
+            0x52 => Opcode::MSTORE,
+            0x53 => Opcode::MSTORE8,
             0x54 => Opcode::SLOAD,
             0x55 => Opcode::SSTORE,
             0x56 => Opcode::JUMP,
             0x57 => Opcode::JUMPI,
+            0x58 => Opcode::PC,
+            0x59 => Opcode::MSIZE,
+            0x5A => Opcode::GAS,
             0x5B => Opcode::JUMPDEST,
             // PUSH operations - return PUSH1 and handle arg size separately
             0x60..=0x7F => Opcode::PUSH1,  // Safe: all PUSHn map to PUSH1
@@ -230,6 +285,8 @@ impl From<u8> for Opcode {
             0x80..=0x8F => Opcode::DUP1,   // Safe: all DUPn map to DUP1
             // SWAP operations 
             0x90..=0x9F => Opcode::SWAP1,  // Safe: all SWAPn map to SWAP1
+            // LOG operations
+            0xA0..=0xA4 => Opcode::LOG0,   // Safe: all LOGn map to LOG0
             0xF0 => Opcode::CREATE,
             0xF1 => Opcode::CALL,
             0xF2 => Opcode::CALLCODE,
@@ -238,16 +295,26 @@ impl From<u8> for Opcode {
             0xF5 => Opcode::CREATE2,
             0xFA => Opcode::STATICCALL,
             0xFD => Opcode::REVERT,
+            0xFE => Opcode::INVALID,
             0xFF => Opcode::SELFDESTRUCT,
-            _ => Opcode::UNKNOWN,
+            _ => Opcode::INVALID,
         }
     }
 }
 
 impl Opcode {
-    /// Returns how many bytes this opcode's argument takes
+    /// Returns how many bytes this opcode's argument takes based on the raw byte
     pub fn arg_size(&self) -> usize {
         let byte = *self as u8;
+        if byte >= 0x60 && byte <= 0x7F {
+            (byte - 0x5F) as usize
+        } else {
+            0
+        }
+    }
+    
+    /// Returns arg size for a raw byte (use when raw byte differs from enum value)
+    pub fn arg_size_for_byte(byte: u8) -> usize {
         if byte >= 0x60 && byte <= 0x7F {
             (byte - 0x5F) as usize
         } else {
@@ -337,10 +404,11 @@ impl Disassembler {
         
         while i < bytecode.len() {
             let raw_byte = bytecode[i];
-            let opcode = Opcode::from(raw_byte);
-            let arg_size = opcode.arg_size();
+            let _opcode = Opcode::from(raw_byte);
+            // Use raw byte for arg size since PUSHn all map to PUSH1
+            let arg_size = Opcode::arg_size_for_byte(raw_byte);
             
-            let argument = if arg_size > 0 && i + arg_size < bytecode.len() {
+            let argument = if arg_size > 0 && i + arg_size <= bytecode.len() - 1 {
                 Some(bytecode[i + 1..i + 1 + arg_size].to_vec())
             } else if arg_size > 0 {
                 // Truncated PUSH - still valid, just pad with zeros
@@ -498,12 +566,11 @@ impl SecurityAnalyzer {
         
         // Look for function selectors (PUSH4 followed by EQ)
         for window in instructions.windows(2) {
-            if let (instr, next) = (&window[0], &window[1]) {
-                if instr.raw_byte == 0x63 { // PUSH4
-                    if next.raw_byte == 0x14 { // EQ
-                        if let Some(selector) = instr.arg_as_selector() {
-                            selectors.push(selector);
-                        }
+            let (instr, next) = (&window[0], &window[1]);
+            if instr.raw_byte == 0x63 { // PUSH4
+                if next.raw_byte == 0x14 { // EQ
+                    if let Some(selector) = instr.arg_as_selector() {
+                        selectors.push(selector);
                     }
                 }
             }
@@ -653,7 +720,7 @@ async fn main() -> anyhow::Result<()> {
     
     // Server mode
     if args.server {
-        server::run_server(args.port).await?;
+        server::run_server(args.port).await.map_err(|e| anyhow::anyhow!("{}", e))?;
         return Ok(());
     }
     
@@ -733,47 +800,3 @@ async fn main() -> anyhow::Result<()> {
     
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_disassemble_simple() {
-        // PUSH1 0x60 PUSH1 0x40 MSTORE
-        let bytecode = vec![0x60, 0x60, 0x60, 0x40, 0x52];
-        let instructions = Disassembler::disassemble(&bytecode).unwrap();
-        
-        assert_eq!(instructions.len(), 3);
-        assert_eq!(instructions[0].raw_byte, 0x60);
-        assert_eq!(instructions[0].argument, Some(vec![0x60]));
-    }
-    
-    #[test]
-    fn test_function_selector_detection() {
-        // PUSH4 0x12345678 EQ
-        let bytecode = vec![0x63, 0x12, 0x34, 0x56, 0x78, 0x14];
-        let instructions = Disassembler::disassemble(&bytecode).unwrap();
-        let analysis = SecurityAnalyzer::analyze(&instructions);
-        
-        assert!(analysis.function_selectors.contains(&"0x12345678".to_string()));
-    }
-    
-    #[test]
-    fn test_dangerous_opcode_detection() {
-        // SELFDESTRUCT
-        let bytecode = vec![0xFF];
-        let instructions = Disassembler::disassemble(&bytecode).unwrap();
-        let analysis = SecurityAnalyzer::analyze(&instructions);
-        
-        assert!(analysis.has_selfdestruct);
-        assert!(!analysis.risk_indicators.is_empty());
-    }
-}
-
-// Include extended test module
-#[cfg(test)]
-mod extended_tests;
-
-#[cfg(test)]
-use extended_tests as tests;

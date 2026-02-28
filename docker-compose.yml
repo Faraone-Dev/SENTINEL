@@ -21,12 +21,20 @@ services:
       - PORT=8080
       - ANALYZER_URL=http://analyzer:5000
       - DECOMPILER_URL=http://decompiler:3000
-      - DATABASE_URL=postgresql://sentinel:sentinel@postgres:5432/sentinel
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel}@postgres:5432/${POSTGRES_DB:-sentinel}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-100}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-sentinel-internal-key}
     depends_on:
-      - postgres
-      - redis
-      - analyzer
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      analyzer:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - sentinel-network
@@ -35,6 +43,11 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
 
   # ═══════════════════════════════════════════════════════════════════════════
   #                           RUST DECOMPILER
@@ -44,14 +57,26 @@ services:
       context: ./decompiler
       dockerfile: Dockerfile
     container_name: sentinel-decompiler
-    ports:
-      - "3000:3000"
+    # Internal only - no external port exposure
+    expose:
+      - "3000"
     environment:
       - RUST_LOG=info
       - PORT=3000
+      - CORS_ORIGINS=http://api:8080
     restart: unless-stopped
     networks:
       - sentinel-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
 
   # ═══════════════════════════════════════════════════════════════════════════
   #                           PYTHON ANALYZER
@@ -61,14 +86,28 @@ services:
       context: ./analyzer
       dockerfile: Dockerfile
     container_name: sentinel-analyzer
-    ports:
-      - "5000:5000"
+    # Internal only - no external port exposure
+    expose:
+      - "5000"
     environment:
       - PYTHONUNBUFFERED=1
       - PORT=5000
+      - WORKERS=2
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-sentinel-internal-key}
+      - CORS_ORIGINS=http://api:8080
     restart: unless-stopped
     networks:
       - sentinel-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
 
   # ═══════════════════════════════════════════════════════════════════════════
   #                           REACT FRONTEND
@@ -77,16 +116,22 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     container_name: sentinel-frontend
     ports:
       - "80:80"
-    environment:
-      - VITE_API_URL=http://api:8080
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - sentinel-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
 
   # ═══════════════════════════════════════════════════════════════════════════
   #                           POSTGRESQL DATABASE
@@ -95,22 +140,28 @@ services:
     image: postgres:16-alpine
     container_name: sentinel-postgres
     environment:
-      - POSTGRES_USER=sentinel
-      - POSTGRES_PASSWORD=sentinel
-      - POSTGRES_DB=sentinel
+      - POSTGRES_USER=${POSTGRES_USER:-sentinel}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-sentinel}
+      - POSTGRES_DB=${POSTGRES_DB:-sentinel}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
+    # Internal only - not exposed to host in production
+    expose:
+      - "5432"
     restart: unless-stopped
     networks:
       - sentinel-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentinel"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
 
   # ═══════════════════════════════════════════════════════════════════════════
   #                              REDIS CACHE
@@ -118,19 +169,25 @@ services:
   redis:
     image: redis:7-alpine
     container_name: sentinel-redis
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-sentinel-redis-pass}
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    # Internal only - not exposed to host in production
+    expose:
+      - "6379"
     restart: unless-stopped
     networks:
       - sentinel-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-sentinel-redis-pass}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #                              VOLUMES

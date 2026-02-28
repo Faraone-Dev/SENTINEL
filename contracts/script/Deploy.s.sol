@@ -41,12 +41,12 @@ contract DeployScript is Script {
         
         // Log deployment summary
         console.log("");
-        console.log("═══════════════════════════════════════════════════════════════");
+        console.log("====================================================================");
         console.log("                    DEPLOYMENT SUMMARY");
-        console.log("═══════════════════════════════════════════════════════════════");
+        console.log("====================================================================");
         console.log("Network:", _getNetworkName(block.chainid));
         console.log("SentinelRegistry:", address(registry));
-        console.log("═══════════════════════════════════════════════════════════════");
+        console.log("====================================================================");
     }
     
     function _getNetworkName(uint256 chainId) internal pure returns (string memory) {

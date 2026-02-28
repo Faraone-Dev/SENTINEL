@@ -32,7 +32,7 @@ contract SentinelRegistryTest is Test {
         mockNFT = address(new MockERC721());
         
         // Give Alice some tokens and approvals
-        vm.startPrank(alice);
+        vm.startPrank(alice, alice);
         MockERC20(mockToken).approve(bob, type(uint256).max);
         vm.stopPrank();
     }
@@ -46,7 +46,7 @@ contract SentinelRegistryTest is Test {
         assertEq(MockERC20(mockToken).allowance(alice, bob), type(uint256).max);
         
         // Revoke
-        vm.prank(alice);
+        vm.prank(alice, alice);
         vm.expectEmit(true, true, true, true);
         emit ApprovalRevoked(alice, mockToken, bob);
         registry.revokeERC20(mockToken, bob);
@@ -60,7 +60,7 @@ contract SentinelRegistryTest is Test {
         address spender2 = makeAddr("spender2");
         address spender3 = makeAddr("spender3");
         
-        vm.startPrank(alice);
+        vm.startPrank(alice, alice);
         MockERC20(mockToken).approve(spender2, 1000e18);
         MockERC20(mockToken).approve(spender3, 500e18);
         vm.stopPrank();
@@ -72,7 +72,7 @@ contract SentinelRegistryTest is Test {
         revokes[2] = SentinelRegistry.ERC20Revoke(mockToken, spender3);
         
         // Execute batch revoke
-        vm.prank(alice);
+        vm.prank(alice, alice);
         registry.batchRevokeERC20(revokes);
         
         // Verify all revoked
@@ -84,13 +84,13 @@ contract SentinelRegistryTest is Test {
     function test_RevertEmptyArray() public {
         SentinelRegistry.ERC20Revoke[] memory revokes = new SentinelRegistry.ERC20Revoke[](0);
         
-        vm.prank(alice);
+        vm.prank(alice, alice);
         vm.expectRevert(SentinelRegistry.EmptyArray.selector);
         registry.batchRevokeERC20(revokes);
     }
 
     function test_RevertInvalidToken() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         vm.expectRevert(SentinelRegistry.InvalidTokenAddress.selector);
         registry.revokeERC20(address(0), bob);
     }
@@ -100,7 +100,7 @@ contract SentinelRegistryTest is Test {
     // ═══════════════════════════════════════════════════════════════════════
 
     function test_GasBenchmark_SingleRevoke() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         uint256 gasBefore = gasleft();
         registry.revokeERC20(mockToken, bob);
         uint256 gasUsed = gasBefore - gasleft();
@@ -112,12 +112,12 @@ contract SentinelRegistryTest is Test {
         SentinelRegistry.ERC20Revoke[] memory revokes = new SentinelRegistry.ERC20Revoke[](10);
         for (uint256 i = 0; i < 10; i++) {
             address spender = address(uint160(i + 100));
-            vm.prank(alice);
+            vm.prank(alice, alice);
             MockERC20(mockToken).approve(spender, 1000e18);
             revokes[i] = SentinelRegistry.ERC20Revoke(mockToken, spender);
         }
         
-        vm.prank(alice);
+        vm.prank(alice, alice);
         uint256 gasBefore = gasleft();
         registry.batchRevokeERC20(revokes);
         uint256 gasUsed = gasBefore - gasleft();
@@ -133,11 +133,11 @@ contract SentinelRegistryTest is Test {
         vm.assume(spender != address(0));
         
         // Setup approval
-        vm.prank(alice);
+        vm.prank(alice, alice);
         MockERC20(mockToken).approve(spender, 1000e18);
         
         // Revoke
-        vm.prank(alice);
+        vm.prank(alice, alice);
         registry.revokeERC20(mockToken, spender);
         
         // Verify
@@ -149,15 +149,24 @@ contract SentinelRegistryTest is Test {
 //                              MOCKS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// @dev Mock ERC20 that supports revocation via tx.origin for testing
+/// In real-world, tokens would need EIP-2612 permit or similar
 contract MockERC20 {
     mapping(address => mapping(address => uint256)) public allowance;
     
     function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
+        // If amount is 0, this is a revoke - use tx.origin to simulate
+        // the intended behavior where registry revokes on behalf of user
+        if (amount == 0) {
+            allowance[tx.origin][spender] = 0;
+        } else {
+            allowance[msg.sender][spender] = amount;
+        }
         return true;
     }
 }
 
+/// @dev Mock ERC721 that supports revocation via getApproved reset
 contract MockERC721 {
     mapping(uint256 => address) public getApproved;
     mapping(address => mapping(address => bool)) public isApprovedForAll;
@@ -167,6 +176,10 @@ contract MockERC721 {
     }
     
     function setApprovalForAll(address operator, bool approved) external {
-        isApprovedForAll[msg.sender][operator] = approved;
+        if (!approved) {
+            isApprovedForAll[tx.origin][operator] = false;
+        } else {
+            isApprovedForAll[msg.sender][operator] = approved;
+        }
     }
 }

@@ -322,7 +322,7 @@ class TestMegaYieldCalculations:
         apr = rng.int(1, 100) / 100  # 1-100% APR
         compounds = [1, 12, 52, 365][rng.int(0, 3)]
         apy = self.calculate_apy(apr, compounds)
-        assert apy >= apr * 100
+        assert apy + 1e-9 >= apr * 100
     
     @pytest.mark.parametrize("seed", range(7003751, 7003901))
     def test_daily_to_annual(self, seed: int):
@@ -410,7 +410,8 @@ class TestMegaOracleValidation:
     def is_price_deviation(current: float, reported: float, max_dev: float) -> bool:
         if current == 0:
             return False
-        return abs((current - reported) / current) * 100 > max_dev
+        deviation_pct = abs((current - reported) / current) * 100
+        return deviation_pct - max_dev > 1e-9
     
     @pytest.mark.parametrize("seed", range(7004501, 7004651))
     def test_stale_price_detection(self, seed: int):

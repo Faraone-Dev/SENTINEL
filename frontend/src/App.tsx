@@ -10,8 +10,10 @@ SENTINEL SHIELD - Single Page Application
 Hero + Dashboard Integrated
 */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
 import { 
   Shield, 
   AlertTriangle, 
@@ -34,6 +36,55 @@ import {
   ArrowUpDown,
   Filter
 } from 'lucide-react';
+import { ERC20_ABI, CHAIN_ID_MAP } from './wagmi';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//                          ERROR BOUNDARY
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface ErrorBoundaryProps { children: ReactNode; }
+interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-8">
+          <div className="max-w-md text-center">
+            <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
+            <p className="text-slate-400 mb-6">
+              {this.state.error?.message || 'An unexpected error occurred.'}
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 font-semibold"
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -788,6 +839,11 @@ const FeatureCard: React.FC<{ icon: React.ElementType; title: string; descriptio
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const App: React.FC = () => {
+  // Wallet connection via wagmi
+  const { address: connectedAddress, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
+
   // Risultati scroll ref
   const resultsRef = useRef<HTMLDivElement>(null);
   
@@ -806,6 +862,13 @@ const App: React.FC = () => {
   const [revokingApprovals, setRevokingApprovals] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning' | 'safe'>('all');
   const [sortBy, setSortBy] = useState<'risk' | 'token'>('risk');
+
+  // Auto-fill wallet address when wallet connects
+  useEffect(() => {
+    if (isConnected && connectedAddress && !walletAddress) {
+      setWalletAddress(connectedAddress);
+    }
+  }, [isConnected, connectedAddress]);
 
   // Scan wallet function
   const performScan = useCallback(async (address: string) => {
@@ -860,14 +923,11 @@ const App: React.FC = () => {
     setContractAnalysis(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/v1/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: contractAddress,
-          chain: selectedChain,
-        }),
+      const query = new URLSearchParams({
+        contract: contractAddress,
+        chain: selectedChain,
       });
+      const response = await fetch(`${API_BASE}/api/v1/analyze?${query.toString()}`);
       
       if (!response.ok) {
         throw new Error('Analysis failed');
@@ -888,14 +948,36 @@ const App: React.FC = () => {
     }
   }, [contractAddress, selectedChain]);
 
-  // Revoke approval
+  // Revoke approval - REAL on-chain transaction via wagmi
   const handleRevoke = useCallback(async (approval: Approval) => {
+    if (!isConnected) {
+      setError('Please connect your wallet first to revoke approvals');
+      return;
+    }
+
     const key = `${approval.tokenAddress}-${approval.spenderAddress}`;
     setRevokingApprovals(prev => new Set([...prev, key]));
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate
+      // Switch to the correct chain if needed
+      const targetChainId = CHAIN_ID_MAP[approval.chain];
+      if (targetChainId) {
+        try {
+          await switchChainAsync({ chainId: targetChainId });
+        } catch {
+          // User may have rejected chain switch, or already on correct chain
+        }
+      }
 
+      // Send real approve(spender, 0) transaction
+      await writeContractAsync({
+        address: approval.tokenAddress as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [approval.spenderAddress as `0x${string}`, BigInt(0)],
+      });
+
+      // Remove from UI on success
       setScanResult(prev => {
         if (!prev) return null;
         const updatedApprovals = prev.approvals.filter(
@@ -914,7 +996,9 @@ const App: React.FC = () => {
           recommendations: summary.recommendations,
         };
       });
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.shortMessage || err?.message || 'Revoke transaction failed';
+      setError(`Revoke failed: ${msg}`);
       console.error('Revoke failed:', err);
     } finally {
       setRevokingApprovals(prev => {
@@ -923,7 +1007,7 @@ const App: React.FC = () => {
         return next;
       });
     }
-  }, []);
+  }, [isConnected, writeContractAsync, switchChainAsync]);
 
   // Show Hero page - AFTER all hooks!
   // REMOVED: Now single integrated page
@@ -951,10 +1035,11 @@ const App: React.FC = () => {
                 SENTINEL SHIELD
               </span>
             </div>
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/20 text-sm">
-              <Wallet size={16} />
-              Connect Wallet
-            </button>
+            <ConnectButton
+              showBalance={false}
+              chainStatus="icon"
+              accountStatus="address"
+            />
           </div>
         </header>
 
@@ -1114,6 +1199,7 @@ const App: React.FC = () => {
                 <select
                   value={selectedChain}
                   onChange={(e) => setSelectedChain(e.target.value)}
+                  aria-label="Select blockchain network"
                   className="px-4 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-white focus:border-purple-500 outline-none text-sm"
                 >
                   {SUPPORTED_CHAINS.map(chain => (
@@ -1338,4 +1424,10 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default function WrappedApp() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}

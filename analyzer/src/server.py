@@ -17,8 +17,9 @@ import logging
 from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -106,13 +107,33 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# Internal API key for service-to-service auth
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+
+async def verify_internal_auth(request: Request):
+    """Verify internal service API key if configured"""
+    if INTERNAL_API_KEY:
+        api_key = request.headers.get("X-API-Key", "")
+        if api_key != INTERNAL_API_KEY:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+# Global exception handler - sanitize errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": "internal server error"}
+    )
+
+# CORS middleware with configurable origins
+cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_origins if cors_origins != ["*"] else ["*"],
+    allow_credentials=False if cors_origins == ["*"] else True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -128,7 +149,7 @@ async def health_check():
         version="1.0.0"
     )
 
-@app.post("/api/analyze", response_model=AnalyzeResponse)
+@app.post("/api/analyze", response_model=AnalyzeResponse, dependencies=[Depends(verify_internal_auth)])
 async def analyze_contract(request: AnalyzeRequest):
     """
     Analyze a smart contract for vulnerabilities
@@ -205,7 +226,7 @@ async def analyze_contract(request: AnalyzeRequest):
         
     except Exception as e:
         logger.error(f"❌ Analysis failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="analysis failed, please try again")
 
 @app.get("/api/stats")
 async def get_stats():
@@ -250,13 +271,16 @@ def main():
     
     port = int(os.getenv("PORT", "5000"))
     host = os.getenv("HOST", "0.0.0.0")
+    workers = int(os.getenv("WORKERS", "2"))
     
     uvicorn.run(
         "server:app",
         host=host,
         port=port,
+        workers=workers,
         reload=False,
-        log_level="info"
+        log_level="info",
+        limit_max_request_size=1_048_576,  # 1MB max request body
     )
 
 if __name__ == "__main__":

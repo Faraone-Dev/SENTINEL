@@ -14,9 +14,13 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use axum::extract::DefaultBodyLimit;
 use serde::{Deserialize, Serialize};
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::timeout::TimeoutLayer;
 use std::net::SocketAddr;
+use std::time::Duration;
+use tokio::signal;
 
 use crate::{Disassembler, SecurityAnalyzer, ControlFlowGraph};
 
@@ -153,9 +157,6 @@ async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoRespon
     if security.has_delegatecall {
         warnings.push("Contract uses DELEGATECALL - potential proxy or upgrade pattern".to_string());
     }
-    if security.has_callcode {
-        warnings.push("Contract uses deprecated CALLCODE opcode".to_string());
-    }
 
     let response = AnalyzeResponse {
         success: true,
@@ -163,11 +164,11 @@ async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoRespon
         functions: vec![], // TODO: Extract function boundaries
         selectors: security.function_selectors.clone(),
         is_proxy: security.has_delegatecall,
-        has_sstore: security.has_sstore,
-        has_call: security.has_external_call,
+        has_sstore: security.storage_writes > 0,
+        has_call: security.external_calls > 0,
         has_delegatecall: security.has_delegatecall,
         has_selfdestruct: security.has_selfdestruct,
-        complexity: security.complexity_score,
+        complexity: security.complexity_score as i32,
         warnings,
         risk_indicators,
         instruction_count: instructions.len(),
@@ -181,16 +182,32 @@ async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoRespon
 //                              SERVER
 // ═══════════════════════════════════════════════════════════════════════════════
 
-pub async fn run_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+pub async fn run_server(port: u16) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // CORS - configurable via env
+    let cors_origins = std::env::var("CORS_ORIGINS").unwrap_or_else(|_| "*".to_string());
+    let cors = if cors_origins == "*" {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    } else {
+        use tower_http::cors::AllowOrigin;
+        let origins: Vec<_> = cors_origins
+            .split(',')
+            .filter_map(|o| o.trim().parse().ok())
+            .collect();
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(origins))
+            .allow_methods(Any)
+            .allow_headers(Any)
+    };
 
     let app = Router::new()
         .route("/health", get(health_handler))
         .route("/analyze", post(analyze_handler))
-        .layer(cors);
+        .layer(cors)
+        .layer(DefaultBodyLimit::max(2 * 1024 * 1024)) // 2MB max body
+        .layer(TimeoutLayer::new(Duration::from_secs(60))); // 60s timeout
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     
@@ -214,7 +231,33 @@ pub async fn run_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
 "#, addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
     
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => { println!("\n👋 Shutting down decompiler server..."); },
+        _ = terminate => { println!("\n👋 Received SIGTERM, shutting down..."); },
+    }
 }

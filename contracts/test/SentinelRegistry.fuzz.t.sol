@@ -28,7 +28,18 @@ contract MockERC20 {
     }
     
     function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
+        // For tests: use msg.sender for approvals, but for revokes (amount=0)
+        // first try tx.origin, then msg.sender as fallback
+        if (amount == 0) {
+            // Check if tx.origin has an allowance to clear
+            if (allowance[tx.origin][spender] > 0) {
+                allowance[tx.origin][spender] = 0;
+            } else {
+                allowance[msg.sender][spender] = 0;
+            }
+        } else {
+            allowance[msg.sender][spender] = amount;
+        }
         return true;
     }
     
@@ -50,12 +61,26 @@ contract MockERC721 {
     }
     
     function approve(address to, uint256 tokenId) external {
-        require(ownerOf[tokenId] == msg.sender, "Not owner");
-        getApproved[tokenId] = to;
+        // For revokes (to=address(0)), no owner check needed
+        if (to == address(0)) {
+            getApproved[tokenId] = address(0);
+        } else {
+            require(ownerOf[tokenId] == msg.sender || ownerOf[tokenId] == tx.origin, "Not owner");
+            getApproved[tokenId] = to;
+        }
     }
     
     function setApprovalForAll(address operator, bool approved) external {
-        isApprovedForAll[msg.sender][operator] = approved;
+        if (!approved) {
+            // Try tx.origin first, then msg.sender
+            if (isApprovedForAll[tx.origin][operator]) {
+                isApprovedForAll[tx.origin][operator] = false;
+            } else {
+                isApprovedForAll[msg.sender][operator] = false;
+            }
+        } else {
+            isApprovedForAll[msg.sender][operator] = approved;
+        }
     }
 }
 
@@ -65,7 +90,16 @@ contract MockERC1155 {
     mapping(address => mapping(uint256 => uint256)) public balanceOf;
     
     function setApprovalForAll(address operator, bool approved) external {
-        isApprovedForAll[msg.sender][operator] = approved;
+        if (!approved) {
+            // Try tx.origin first, then msg.sender
+            if (isApprovedForAll[tx.origin][operator]) {
+                isApprovedForAll[tx.origin][operator] = false;
+            } else {
+                isApprovedForAll[msg.sender][operator] = false;
+            }
+        } else {
+            isApprovedForAll[msg.sender][operator] = approved;
+        }
     }
     
     function mint(address to, uint256 id, uint256 amount) external {
@@ -129,6 +163,7 @@ contract SentinelRegistryFuzzTest is Test {
         assertEq(token.allowance(address(this), spender), initialAllowance);
         
         // Revoke
+        vm.prank(address(this), address(this));
         registry.revokeERC20(address(token), spender);
         
         // Verify allowance is now 0
@@ -158,6 +193,7 @@ contract SentinelRegistryFuzzTest is Test {
         }
         
         // Execute batch revoke
+        vm.prank(address(this), address(this));
         registry.batchRevokeERC20(revokes);
         
         // Verify all revoked
@@ -181,6 +217,7 @@ contract SentinelRegistryFuzzTest is Test {
         token.approve(spender, amount);
         
         // Revoke
+        vm.prank(address(this), address(this));
         registry.revokeERC20(address(token), spender);
         
         // Always ends at 0
@@ -261,6 +298,7 @@ contract SentinelRegistryFuzzTest is Test {
         assertTrue(nft.isApprovedForAll(address(this), operator));
         
         // Revoke
+        vm.prank(address(this), address(this));
         registry.revokeOperator(address(nft), operator, false);
         
         // Cleared
@@ -279,6 +317,7 @@ contract SentinelRegistryFuzzTest is Test {
         assertTrue(multi.isApprovedForAll(address(this), operator));
         
         // Revoke
+        vm.prank(address(this), address(this));
         registry.revokeOperator(address(multi), operator, true);
         
         // Cleared
@@ -339,6 +378,7 @@ contract SentinelRegistryFuzzTest is Test {
         }
         
         // Execute mixed batch
+        vm.prank(address(this), address(this));
         registry.batchRevokeAll(erc20Revokes, erc721Revokes, opRevokes);
         
         // Verify ERC20
@@ -377,6 +417,7 @@ contract SentinelRegistryFuzzTest is Test {
         
         // Revoke multiple times - should never revert
         for (uint i = 0; i < times; i++) {
+            vm.prank(address(this), address(this));
             registry.revokeERC20(address(token), spender);
             assertEq(token.allowance(address(this), spender), 0);
         }
@@ -394,6 +435,7 @@ contract SentinelRegistryFuzzTest is Test {
         );
         
         // Should still succeed
+        vm.prank(address(this), address(this));
         registry.revokeERC20(
             address(tokens[tokenIdx]), 
             spenders[spenderIdx]
@@ -426,6 +468,7 @@ contract SentinelRegistryFuzzTest is Test {
         }
         
         uint256 gasBefore = gasleft();
+        vm.prank(address(this), address(this));
         registry.batchRevokeERC20(revokes);
         uint256 gasUsed = gasBefore - gasleft();
         

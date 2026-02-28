@@ -28,6 +28,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -72,7 +74,6 @@ func loadEnv() bool {
 		"../config/.env",    // From api/
 		"config/.env",       // From project root
 		".env",              // Current directory
-		"C:/Users/Utente/Desktop/project/SENTINEL/config/.env", // Absolute path
 	}
 
 	// Also try absolute path based on executable location
@@ -1325,7 +1326,8 @@ func (s *Scanner) generateRecommendations(result *WalletScanResult) {
 	// Unknown spender recommendations
 	unknownCount := 0
 	for _, a := range result.Approvals {
-		if a.SpenderName == "Unknown" {
+		nameLower := strings.ToLower(a.SpenderName)
+		if strings.EqualFold(a.SpenderName, "Unknown") || (strings.EqualFold(a.RiskLevel, "warning") && strings.HasPrefix(nameLower, "0x")) {
 			unknownCount++
 		}
 	}
@@ -1586,14 +1588,14 @@ func (ca *ContractAnalyzer) AnalyzeContract(ctx context.Context, address string,
 		result.Decompilation = decompResult
 	}
 
-	// Step 3: Security analysis (non-blocking errors)
+	// Step 3: Security analysis (must succeed to ensure reliable risk)
 	analyzerResult, err := ca.analyzer.Analyze(ctx, address, string(chain), bytecode)
 	if err != nil {
-		log.Printf("Analyzer warning: %v", err)
-	} else {
-		result.SecurityReport = analyzerResult
-		result.OverallRisk = analyzerResult.RiskScore
+		return nil, fmt.Errorf("analyzer request failed: %w", err)
 	}
+
+	result.SecurityReport = analyzerResult
+	result.OverallRisk = analyzerResult.RiskScore
 
 	// Cache result
 	ca.cache.Set(cacheKey, result)
@@ -1692,20 +1694,152 @@ func NewServerWithScanner(scanner ScannerService) *Server {
 	}
 }
 
-// CORS middleware
+// ═══════════════════════════════════════════════════════════════════════════════
+//                         RATE LIMITER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type RateLimiter struct {
+	mu       sync.Mutex
+	visitors map[string]*visitor
+	rpm      int
+}
+
+type visitor struct {
+	tokens    int
+	lastReset time.Time
+}
+
+func NewRateLimiter(rpm int) *RateLimiter {
+	rl := &RateLimiter{
+		visitors: make(map[string]*visitor),
+		rpm:      rpm,
+	}
+	// Cleanup stale visitors every 5 minutes
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			rl.mu.Lock()
+			for ip, v := range rl.visitors {
+				if time.Since(v.lastReset) > 5*time.Minute {
+					delete(rl.visitors, ip)
+				}
+			}
+			rl.mu.Unlock()
+		}
+	}()
+	return rl
+}
+
+func (rl *RateLimiter) Allow(ip string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	v, exists := rl.visitors[ip]
+	now := time.Now()
+
+	if !exists || now.Sub(v.lastReset) >= time.Minute {
+		rl.visitors[ip] = &visitor{tokens: rl.rpm - 1, lastReset: now}
+		return true
+	}
+
+	if v.tokens <= 0 {
+		return false
+	}
+
+	v.tokens--
+	return true
+}
+
+// Global rate limiter
+var rateLimiter *RateLimiter
+
+func initRateLimiter() {
+	rpm, _ := strconv.Atoi(getEnv("RATE_LIMIT_RPM", "100"))
+	if rpm <= 0 {
+		rpm = 100
+	}
+	rateLimiter = NewRateLimiter(rpm)
+	log.Printf("⚡ Rate limiter: %d requests/minute per IP", rpm)
+}
+
+// Wallet address validation regex
+var ethAddressRegex = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
+
+func isValidAddress(addr string) bool {
+	return ethAddressRegex.MatchString(addr)
+}
+
+// CORS middleware with configurable origins
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	allowedOrigins := getEnv("CORS_ORIGINS", "*")
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+
+		if allowedOrigins == "*" {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		} else {
+			for _, allowed := range strings.Split(allowedOrigins, ",") {
+				if strings.TrimSpace(allowed) == origin {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					w.Header().Set("Vary", "Origin")
+					break
+				}
+			}
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
 		next(w, r)
 	}
+}
+
+// Rate limiting middleware
+func rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ip := r.Header.Get("X-Forwarded-For")
+		if ip == "" {
+			ip = r.Header.Get("X-Real-IP")
+		}
+		if ip == "" {
+			ip = r.RemoteAddr
+		}
+
+		if !rateLimiter.Allow(ip) {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Retry-After", "60")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "rate limit exceeded, try again later",
+			})
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+// Security headers middleware
+func securityHeaders(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		next(w, r)
+	}
+}
+
+// Chain all middlewares
+func withMiddleware(handler http.HandlerFunc) http.HandlerFunc {
+	return securityHeaders(corsMiddleware(rateLimitMiddleware(handler)))
 }
 
 // Health check
@@ -1732,7 +1866,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	walletAddress := r.URL.Query().Get("wallet")
 	if walletAddress == "" {
-		http.Error(w, "wallet parameter required", http.StatusBadRequest)
+		http.Error(w, `{"error":"wallet parameter required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Validate wallet address format
+	if !isValidAddress(walletAddress) {
+		http.Error(w, `{"error":"invalid wallet address format (expected 0x + 40 hex chars)"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -1786,7 +1926,10 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.scanner.ScanWallet(ctx, walletAddress, chains)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Scan error for %s: %v", walletAddress, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "scan failed, please try again"})
 		return
 	}
 
@@ -1840,7 +1983,10 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.contractAnalyzer.AnalyzeContract(ctx, contractAddress, chain)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Analyze error for %s: %v", contractAddress, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "analysis failed, please try again"})
 		return
 	}
 
@@ -1851,7 +1997,7 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 // Batch analyze multiple contracts
 func (s *Server) handleBatchAnalyze(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "POST method required", http.StatusMethodNotAllowed)
+		http.Error(w, `{"error":"POST method required"}`, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -1862,8 +2008,10 @@ func (s *Server) handleBatchAnalyze(w http.ResponseWriter, r *http.Request) {
 		} `json:"contracts"`
 	}
 
+	// Limit request body size to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid JSON body"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -1943,14 +2091,17 @@ func main() {
     GET  /api/v1/chains         - List supported chains
 	`)
 
+	// Initialize rate limiter
+	initRateLimiter()
+
 	server := NewServer()
 
-	// Routes
+	// Routes with full middleware chain (security headers + CORS + rate limiting)
 	http.HandleFunc("/health", corsMiddleware(server.handleHealth))
-	http.HandleFunc("/api/v1/scan", corsMiddleware(server.handleScan))
-	http.HandleFunc("/api/v1/chains", corsMiddleware(server.handleChains))
-	http.HandleFunc("/api/v1/analyze", corsMiddleware(server.handleAnalyze))
-	http.HandleFunc("/api/v1/analyze/batch", corsMiddleware(server.handleBatchAnalyze))
+	http.HandleFunc("/api/v1/scan", withMiddleware(server.handleScan))
+	http.HandleFunc("/api/v1/chains", withMiddleware(server.handleChains))
+	http.HandleFunc("/api/v1/analyze", withMiddleware(server.handleAnalyze))
+	http.HandleFunc("/api/v1/analyze/batch", withMiddleware(server.handleBatchAnalyze))
 
 	// Start server
 	port := os.Getenv("PORT")
@@ -1959,9 +2110,11 @@ func main() {
 	}
 
 	httpServer := &http.Server{
-		Addr:         ":" + port,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		Addr:           ":" + port,
+		ReadTimeout:    15 * time.Second,
+		WriteTimeout:   60 * time.Second,
+		IdleTimeout:    120 * time.Second,
+		MaxHeaderBytes: 1 << 20, // 1MB max header size
 	}
 
 	// Graceful shutdown

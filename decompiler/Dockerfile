@@ -31,15 +31,18 @@ FROM alpine:3.19
 
 RUN apk add --no-cache ca-certificates
 
+# Create non-root user
+RUN adduser -D -u 1000 sentinel
+
 COPY --from=builder /app/target/release/sentinel-decompile /usr/local/bin/
+
+# Use non-root user
+USER sentinel
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget -q --spider http://localhost:3000/health || exit 1
 
-# Run in server mode
+# Run in server mode (single CMD, no conflicting ENTRYPOINT)
 CMD ["sentinel-decompile", "--server", "--port", "3000"]
-
-ENTRYPOINT ["sentinel-decompile"]
-CMD ["--serve", "--port", "3000"]
