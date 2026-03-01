@@ -1,0 +1,55 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# SENTINEL SHIELD - E2E Test Docker Compose Override
+#
+# Extends the root docker-compose.yml with test-specific config:
+#   - Deterministic env vars (no .env file needed)
+#   - Isolated network & volumes
+#   - Healthcheck tuning for faster feedback
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: '3.9'
+
+services:
+  # Override API with test env
+  api:
+    environment:
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY:-test_key}
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-test_key}
+      - ADMIN_API_KEY=e2e-test-admin-key
+      - INTERNAL_API_KEY=e2e-test-internal-key
+      - CORS_ORIGINS=http://localhost:80
+      - RATE_LIMIT_RPM=1000
+      - LOG_LEVEL=debug
+    healthcheck:
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Override Postgres with fixed credentials
+  postgres:
+    environment:
+      - POSTGRES_USER=sentinel_test
+      - POSTGRES_PASSWORD=sentinel_test_pass
+      - POSTGRES_DB=sentinel_e2e
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Override Redis with no password for testing
+  redis:
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Override Frontend env
+  frontend:
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
