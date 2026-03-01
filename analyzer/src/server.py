@@ -102,7 +102,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="SENTINEL Analyzer API",
-    description="ML-based vulnerability pattern analyzer for smart contracts",
+    description="Heuristic vulnerability pattern analyzer for smart contracts",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -260,7 +260,7 @@ def main():
  ███████║ ███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗
  ╚══════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 
-  SENTINEL SHIELD - ML Vulnerability Analyzer Server v1.0.0
+  SENTINEL SHIELD - Heuristic Vulnerability Analyzer Server v1.0.0
 
   Endpoints:
     GET  /health       - Health check

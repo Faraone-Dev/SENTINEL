@@ -14,9 +14,9 @@ uvicorn>=0.27.0
 numpy>=1.26.0
 pandas>=2.1.0
 
-# ML / Pattern matching (future expansion)
-scikit-learn>=1.3.0
-joblib>=1.3.0
+# Pattern matching
+# scikit-learn>=1.3.0  # not yet used
+# joblib>=1.3.0        # not yet used
 
 # Web3 interaction
 web3>=6.11.0

@@ -6,7 +6,7 @@
 ███████║ ███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗
 ╚══════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 
-SENTINEL SHIELD - ML-based Vulnerability Pattern Analyzer
+SENTINEL SHIELD - Heuristic Vulnerability Pattern Analyzer
 Author: SENTINEL Team
 
 This module provides intelligent pattern detection for:
@@ -479,7 +479,7 @@ async def main():
 ███████║ ███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗
 ╚══════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 
-        ML-based Vulnerability Analyzer v0.1.0
+        Heuristic Vulnerability Analyzer v0.1.0
     """)
     
     # Sample test

@@ -67,7 +67,7 @@ Real-time protection for your crypto assets. Scan your wallet across **16 mainne
 │  ┌────────────┐    ┌────────────────┐   ┌──────────────┐       │
 │  │ DECOMPILER │    │ RISK ANALYZER  │   │   DATABASE   │       │
 │  │   (Rust)   │    │   (Python)     │   │  (Postgres)  │       │
-│  │            │    │   + AI/ML      │   │              │       │
+│  │            │    │  Heuristic     │   │              │       │
 │  └────────────┘    └────────────────┘   └──────────────┘       │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐    │
@@ -86,7 +86,7 @@ Real-time protection for your crypto assets. Scan your wallet across **16 mainne
 |-----------|----------|---------|
 | **API Server** | Go | High-performance multi-chain RPC, concurrent scanning |
 | **Decompiler** | Rust | Bytecode analysis, opcode parsing, CFG generation |
-| **Analyzer** | Python | ML-based pattern detection, risk scoring |
+| **Analyzer** | Python | Heuristic pattern detection, risk scoring |
 | **Frontend** | React + TypeScript | User dashboard, wallet connection |
 | **Contracts** | Solidity + Yul | On-chain helpers, gas-optimized operations |
 | **Database** | PostgreSQL | Vulnerability patterns, scan history |

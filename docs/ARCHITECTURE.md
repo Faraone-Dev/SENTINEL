@@ -61,7 +61,7 @@ SENTINEL is a multi-chain wallet security scanner built with a microservices arc
 
 ### 3. Python Analyzer (`analyzer/`)
 
-- **Purpose**: ML-based vulnerability detection
+- **Purpose**: Heuristic vulnerability detection
 - **Port**: 5000
 - **Features**:
   - Honeypot detection
