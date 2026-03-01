@@ -21,13 +21,14 @@ services:
       - PORT=8080
       - ANALYZER_URL=http://analyzer:5000
       - DECOMPILER_URL=http://decompiler:3000
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-sentinel}:${POSTGRES_PASSWORD:-sentinel}@postgres:5432/${POSTGRES_DB:-sentinel}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
       - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
-      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:80}
       - RATE_LIMIT_RPM=${RATE_LIMIT_RPM:-100}
-      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-sentinel-internal-key}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,7 +94,7 @@ services:
       - PYTHONUNBUFFERED=1
       - PORT=5000
       - WORKERS=2
-      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-sentinel-internal-key}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
       - CORS_ORIGINS=http://api:8080
     restart: unless-stopped
     networks:
@@ -140,9 +141,9 @@ services:
     image: postgres:16-alpine
     container_name: sentinel-postgres
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-sentinel}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-sentinel}
-      - POSTGRES_DB=${POSTGRES_DB:-sentinel}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -153,7 +154,7 @@ services:
     networks:
       - sentinel-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -169,7 +170,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: sentinel-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-sentinel-redis-pass}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     # Internal only - not exposed to host in production
@@ -179,7 +180,7 @@ services:
     networks:
       - sentinel-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-sentinel-redis-pass}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
