@@ -88,7 +88,7 @@ export const CurvedText: React.FC = () => {
         fontSize="48"
         fontWeight="bold"
         fontFamily="monospace"
-        style={{ filter: 'drop-shadow(0 0 20px rgba(0, 255, 209, 0.9))' }}
+        className="drop-shadow-[0_0_20px_rgba(0,255,209,0.9)]"
       >
         <textPath href="#curve" startOffset="50%" textAnchor="middle">
           SENTINEL

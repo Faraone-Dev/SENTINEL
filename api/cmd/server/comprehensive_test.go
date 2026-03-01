@@ -549,15 +549,9 @@ func TestError_Wrapping(t *testing.T) {
 }
 
 func TestError_NilHandling(t *testing.T) {
-	var err error
-	// Test that zero-value error is handled correctly
-	if err != nil {
-		t.Error("nil error should be nil")
-	}
-
 	// Test assignment from function that returns nil
 	getErr := func() error { return nil }
-	err = getErr()
+	err := getErr()
 	if err != nil {
 		t.Error("returned nil error should be nil")
 	}
