@@ -1658,6 +1658,8 @@ type Server struct {
 	scanner          ScannerService
 	contractAnalyzer *ContractAnalyzer
 	chainClients     map[ChainID]*ChainClient
+	db               *DB
+	redis            *RedisCache
 }
 
 func NewServer() *Server {
@@ -1671,10 +1673,24 @@ func NewServer() *Server {
 		cache:   NewCache(config.CacheTTL),
 	}
 
+	// Connect to PostgreSQL (optional — server works without it)
+	db, err := NewDB()
+	if err != nil {
+		log.Printf("⚠️  PostgreSQL unavailable: %v", err)
+	}
+
+	// Connect to Redis (optional — falls back to in-memory cache)
+	redisCache, err := NewRedisCache()
+	if err != nil {
+		log.Printf("⚠️  Redis unavailable: %v", err)
+	}
+
 	return &Server{
 		scanner:          scanner,
 		contractAnalyzer: NewContractAnalyzer(clients),
 		chainClients:     clients,
+		db:               db,
+		redis:            redisCache,
 	}
 }
 
@@ -1978,6 +1994,15 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
+	// Check Redis cache first
+	if cached, _ := s.redis.GetScanCache(ctx, walletAddress, chains); cached != nil {
+		log.Printf("Cache hit for %s", walletAddress)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Cache", "HIT")
+		_ = json.NewEncoder(w).Encode(cached)
+		return
+	}
+
 	result, err := s.scanner.ScanWallet(ctx, walletAddress, chains)
 	if err != nil {
 		log.Printf("Scan error for %s: %v", walletAddress, err)
@@ -1987,7 +2012,14 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cache in Redis (5 min TTL)
+	_ = s.redis.SetScanCache(ctx, walletAddress, chains, result, 5*time.Minute)
+
+	// Persist to PostgreSQL
+	_ = s.db.SaveScanResult(ctx, result)
+
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
 	_ = json.NewEncoder(w).Encode(result)
 }
 
@@ -2193,6 +2225,14 @@ func main() {
 
 	if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)
+	}
+
+	// Cleanup
+	if server.db != nil {
+		server.db.Close()
+	}
+	if server.redis != nil {
+		server.redis.Close()
 	}
 }
 
