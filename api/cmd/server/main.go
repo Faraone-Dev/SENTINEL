@@ -1770,6 +1770,9 @@ func (rl *RateLimiter) Allow(ip string) bool {
 // Global rate limiter
 var rateLimiter *RateLimiter
 
+// Global Redis reference for distributed rate limiting (set in main)
+var globalRedis *RedisCache
+
 func initRateLimiter() {
 	rpm, _ := strconv.Atoi(getEnv("RATE_LIMIT_RPM", "100"))
 	if rpm <= 0 {
@@ -1818,7 +1821,7 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// Rate limiting middleware
+// Rate limiting middleware — tries Redis (distributed) first, falls back to in-memory.
 func rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := r.Header.Get("X-Forwarded-For")
@@ -1829,7 +1832,25 @@ func rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			ip = r.RemoteAddr
 		}
 
-		if !rateLimiter.Allow(ip) {
+		allowed := true
+
+		// Try Redis-based distributed rate limiter first
+		if globalRedis != nil {
+			ok, err := globalRedis.CheckRateLimit(r.Context(), ip, rateLimiter.rpm)
+			if err != nil {
+				log.Printf("⚠️  Redis rate-limit error, falling back to in-memory: %v", err)
+				allowed = rateLimiter.Allow(ip)
+			} else {
+				allowed = ok
+			}
+		} else {
+			allowed = rateLimiter.Allow(ip)
+		}
+
+		if !allowed {
+			if metrics != nil {
+				metrics.RateLimitBlocks.Add(1)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", "60")
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -1890,6 +1911,9 @@ func apiKeyAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		if apiKey != requiredKey {
+			if metrics != nil {
+				metrics.AuthFailures.Add(1)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			_ = json.NewEncoder(w).Encode(map[string]string{
@@ -1908,8 +1932,10 @@ func withMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 }
 
 // Chain all middlewares + auth (protected endpoints)
+// JWT is tried first; if JWT_SECRET isn't set or the token isn't a JWT,
+// it falls through to API-key authentication.
 func withAuth(handler http.HandlerFunc) http.HandlerFunc {
-	return securityHeaders(corsMiddleware(rateLimitMiddleware(apiKeyAuthMiddleware(handler))))
+	return securityHeaders(corsMiddleware(rateLimitMiddleware(jwtAuthMiddleware(apiKeyAuthMiddleware(handler)))))
 }
 
 // Health check
@@ -2012,6 +2038,10 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if metrics != nil {
+		metrics.ScansTotal.Add(1)
+	}
+
 	// Cache in Redis (5 min TTL)
 	_ = s.redis.SetScanCache(ctx, walletAddress, chains, result, 5*time.Minute)
 
@@ -2074,6 +2104,10 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "analysis failed, please try again"})
 		return
+	}
+
+	if metrics != nil {
+		metrics.AnalyzesTotal.Add(1)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -2175,22 +2209,40 @@ func main() {
     GET  /api/v1/analyze        - Analyze contract (decompiler + security)
     POST /api/v1/analyze/batch  - Batch analyze contracts
     GET  /api/v1/chains         - List supported chains
+    POST /api/v1/auth/token     - Issue JWT token (admin)
+    GET  /metrics               - Prometheus metrics
 	`)
 
-	// Initialize rate limiter
+	// Initialize subsystems
 	initRateLimiter()
+	initMetrics()
+	initJWT()
 
 	server := NewServer()
 
-	// Routes with full middleware chain
-	// Public endpoints (no auth required)
-	http.HandleFunc("/health", corsMiddleware(server.handleHealth))
-	http.HandleFunc("/api/v1/chains", withMiddleware(server.handleChains))
+	// Wire up distributed rate limiting via Redis
+	globalRedis = server.redis
+	if globalRedis != nil {
+		log.Println("🔗 Rate limiter: Redis (distributed)")
+	} else {
+		log.Println("🔗 Rate limiter: in-memory only")
+	}
 
-	// Protected endpoints (API key required in production)
-	http.HandleFunc("/api/v1/scan", withAuth(server.handleScan))
-	http.HandleFunc("/api/v1/analyze", withAuth(server.handleAnalyze))
-	http.HandleFunc("/api/v1/analyze/batch", withAuth(server.handleBatchAnalyze))
+	// Routes with full middleware chain
+	// Observability (no auth, no rate limit)
+	http.HandleFunc("/metrics", handleMetrics)
+
+	// Public endpoints (no auth required)
+	http.HandleFunc("/health", corsMiddleware(metricsMiddleware("/health", server.handleHealth)))
+	http.HandleFunc("/api/v1/chains", withMiddleware(metricsMiddleware("/api/v1/chains", server.handleChains)))
+
+	// Token endpoint (admin only — API key required)
+	http.HandleFunc("/api/v1/auth/token", withAuth(metricsMiddleware("/api/v1/auth/token", server.handleTokenCreate)))
+
+	// Protected endpoints (JWT or API key)
+	http.HandleFunc("/api/v1/scan", withAuth(metricsMiddleware("/api/v1/scan", server.handleScan)))
+	http.HandleFunc("/api/v1/analyze", withAuth(metricsMiddleware("/api/v1/analyze", server.handleAnalyze)))
+	http.HandleFunc("/api/v1/analyze/batch", withAuth(metricsMiddleware("/api/v1/analyze/batch", server.handleBatchAnalyze)))
 
 	// Start server
 	port := os.Getenv("PORT")
