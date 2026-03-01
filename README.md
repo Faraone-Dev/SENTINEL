@@ -1,275 +1,357 @@
-# 🛡️ SENTINEL SHIELD
+# SENTINEL SHIELD
 
-**Multi-chain Wallet Security Scanner - 16 EVM Chains**
+<p align="center">
+  <strong>Multi-chain Wallet Security Scanner &mdash; 16 EVM Chains</strong>
+</p>
 
-Real-time protection for your crypto assets. Scan your wallet across **16 mainnet chains**, detect scams, revoke dangerous approvals, and protect your funds.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#api-reference">API Reference</a> &bull;
+  <a href="#architecture">Architecture</a> &bull;
+  <a href="TESTING.md">Tests</a> &bull;
+  <a href="SECURITY.md">Security</a> &bull;
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
----
-
-## 🌐 Supported Chains (16 Mainnets)
-
-### Ethereum L2s
-| Chain | Icon | Chain ID |
-|-------|------|----------|
-| Ethereum | ⟠ | 1 |
-| Arbitrum One | 🔵 | 42161 |
-| Optimism | 🔴 | 10 |
-| Base | 🔷 | 8453 |
-| zkSync Era | ⚡ | 324 |
-| Linea | 📐 | 59144 |
-| Scroll | 📜 | 534352 |
-| Polygon zkEVM | 🔐 | 1101 |
-
-### Alt L1s
-| Chain | Icon | Chain ID |
-|-------|------|----------|
-| BNB Chain | ⬡ | 56 |
-| Polygon PoS | ⬢ | 137 |
-| Avalanche C-Chain | 🔺 | 43114 |
-| Fantom Opera | 👻 | 250 |
-| Cronos | 🌙 | 25 |
-| Gnosis Chain | 🦉 | 100 |
-| Celo | 🌿 | 42220 |
-| Moonbeam | 🌙 | 1284 |
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.22-00ADD8?logo=go&logoColor=white" alt="Go 1.22" />
+  <img src="https://img.shields.io/badge/Rust-stable-DEA584?logo=rust&logoColor=white" alt="Rust" />
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white" alt="Python 3.11" />
+  <img src="https://img.shields.io/badge/Solidity-0.8.x-363636?logo=solidity&logoColor=white" alt="Solidity" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+</p>
 
 ---
 
-## 🔥 Features
+## Overview
 
-- **16-Chain Support**: All major EVM chains with real RPC connections
-- **Deep Analysis**: Bytecode decompilation, pattern detection, vulnerability scanning
-- **Contract Analysis**: Decompile any contract and detect 30+ vulnerability patterns
-- **One-click Revoke**: Remove dangerous approvals directly from the dashboard
-- **Real-time Alerts**: Get notified when contracts you approved get upgraded or flagged
-- **Risk Scoring**: Global wallet health score based on all interactions
+SENTINEL scans wallet approvals across **16 mainnet EVM chains**, decompiles contract bytecode, detects 30+ vulnerability patterns, and lets users revoke dangerous approvals — all from a single dashboard.
+
+**Core pipeline:** User wallet &rarr; Go API (concurrent multi-chain RPC) &rarr; Rust decompiler (bytecode &rarr; opcodes) &rarr; Python analyzer (heuristic risk scoring) &rarr; React frontend (actionable results).
 
 ---
 
-## 🏗️ Architecture
+## Supported Chains
+
+| Ethereum & L2s | Alt L1s |
+|:---|:---|
+| Ethereum (1) &bull; Arbitrum One (42161) &bull; Optimism (10) &bull; Base (8453) | BNB Chain (56) &bull; Polygon PoS (137) &bull; Avalanche (43114) &bull; Fantom (250) |
+| zkSync Era (324) &bull; Linea (59144) &bull; Scroll (534352) &bull; Polygon zkEVM (1101) | Cronos (25) &bull; Gnosis (100) &bull; Celo (42220) &bull; Moonbeam (1284) |
+
+---
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **16-Chain Scanning** | Concurrent RPC calls across all supported mainnets |
+| **Bytecode Decompilation** | Rust-powered opcode analysis and control-flow graph generation |
+| **30+ Vuln Patterns** | Honeypots, hidden mints, reentrancy, proxy risks, access control flaws |
+| **One-click Revoke** | Remove dangerous approvals directly from the dashboard |
+| **Risk Scoring** | Per-approval + global wallet health score (0–100) |
+| **JWT + API Key Auth** | HS256 JWT tokens with API-key fallback for all protected endpoints |
+| **Distributed Rate Limiting** | Redis-backed rate limiter with automatic in-memory fallback |
+| **Prometheus Metrics** | `/metrics` endpoint — request counters, latency histograms, business KPIs |
+| **PostgreSQL + Redis** | Persistent scan history, distributed caching (optional, graceful degradation) |
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      SENTINEL SHIELD                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              FRONTEND (React + TypeScript)               │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                            │                                     │
-│                            ▼                                     │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    API SERVER (Go)                       │    │
-│  │        Fast, concurrent, multi-chain RPC handling        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                            │                                     │
-│         ┌──────────────────┼──────────────────┐                 │
-│         ▼                  ▼                  ▼                 │
-│  ┌────────────┐    ┌────────────────┐   ┌──────────────┐       │
-│  │ DECOMPILER │    │ RISK ANALYZER  │   │   DATABASE   │       │
-│  │   (Rust)   │    │   (Python)     │   │  (Postgres)  │       │
-│  │            │    │  Heuristic     │   │              │       │
-│  └────────────┘    └────────────────┘   └──────────────┘       │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │            ON-CHAIN CONTRACTS (Solidity + Yul)           │    │
-│  │         Gas-optimized registry and revoke helpers        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+                            ┌──────────────────────────┐
+                            │   Frontend (React + TS)  │
+                            │   Vite · Tailwind · wagmi│
+                            └────────────┬─────────────┘
+                                         │ HTTPS
+                            ┌────────────▼─────────────┐
+                            │      API Server (Go)     │
+                            │  JWT · Rate Limit · CORS │
+                            │  Prometheus · Middleware  │
+                            └──┬─────────┬──────────┬──┘
+                               │         │          │
+                    ┌──────────▼──┐ ┌────▼────┐ ┌───▼──────────┐
+                    │ Decompiler  │ │Analyzer │ │  PostgreSQL  │
+                    │   (Rust)    │ │(Python) │ │  + Redis     │
+                    │ Opcodes/CFG │ │Heuristic│ │  Cache/Store │
+                    └─────────────┘ └─────────┘ └──────────────┘
+                               │
+                    ┌──────────▼──────────────────────┐
+                    │   On-chain Contracts (Sol + Yul)│
+                    │ SentinelRegistry · BatchRevokeYul│
+                    └─────────────────────────────────┘
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-| Component | Language | Purpose |
-|-----------|----------|---------|
-| **API Server** | Go | High-performance multi-chain RPC, concurrent scanning |
-| **Decompiler** | Rust | Bytecode analysis, opcode parsing, CFG generation |
-| **Analyzer** | Python | Heuristic pattern detection, risk scoring |
-| **Frontend** | React + TypeScript | User dashboard, wallet connection |
-| **Contracts** | Solidity + Yul | On-chain helpers, gas-optimized operations |
-| **Database** | PostgreSQL | Vulnerability patterns, scan history |
-
----
-
-## ✅ Prerequisites
-
-- Go 1.22+
-- Rust (stable)
-- Python 3.11+
-- Node.js 20+
-- Docker + Docker Compose (optional)
-- Foundry (for contracts testing)
+| Layer | Technology | Role |
+|-------|-----------|------|
+| **API** | Go 1.22 | HTTP server, multi-chain RPC, middleware (JWT, rate limit, CORS, metrics) |
+| **Decompiler** | Rust (stable) | EVM bytecode disassembly, opcode parsing, CFG generation |
+| **Analyzer** | Python 3.11+ | Heuristic vulnerability detection, risk scoring |
+| **Frontend** | React 18, TypeScript, Vite, Tailwind, RainbowKit | Dashboard, wallet connection, one-click revoke |
+| **Contracts** | Solidity 0.8.x + Yul | On-chain registry, gas-optimized batch revoke |
+| **Data** | PostgreSQL 16, Redis 7 | Scan history, distributed cache, rate limiting |
+| **Infra** | Docker Compose, GitHub Actions CI/CD | Multi-container deployment, 5-stage pipeline |
 
 ---
 
-## 🔐 Configuration
+## Quick Start
 
-Copy the environment template and set your API keys:
+### Docker (recommended)
 
-- [config/.env.example](config/.env.example) → [config/.env](config/.env)
+```bash
+git clone https://github.com/conditional-team/SENTINEL.git
+cd SENTINEL
+cp config/.env.example config/.env    # edit with your RPC keys
+docker-compose up -d                  # starts all 6 services
+```
 
-Required/optional environment variables:
+Services are available at:
 
-- `ALCHEMY_API_KEY` (recommended)
-- `ETHERSCAN_API_KEY` (optional; free tier has limits)
-- `DECOMPILER_URL` (default: http://localhost:3000)
-- `ANALYZER_URL` (default: http://localhost:5000)
-- `PORT` (API server, default: 8080)
-- `VITE_API_URL` (frontend, default: http://localhost:8080)
+| Service | URL |
+|---------|-----|
+| Frontend | `http://localhost:80` |
+| API | `http://localhost:8080` |
+| Prometheus metrics | `http://localhost:8080/metrics` |
+| Decompiler | `http://localhost:3000` |
+| Analyzer | `http://localhost:5000` |
+
+### Manual (development)
+
+```bash
+# API Server
+cd api && go run cmd/server/main.go          # :8080
+
+# Decompiler
+cd decompiler && cargo run -- --server --port 3000   # :3000
+
+# Analyzer
+cd analyzer && python src/server.py          # :5000
+
+# Frontend
+cd frontend && npm install && npm run dev    # :5173
+```
+
+### Makefile shortcuts
+
+```bash
+make build          # Build all components
+make test           # Run all test suites
+make docker-up      # docker-compose up -d
+make docker-down    # docker-compose down
+make help           # List all targets
+```
 
 ---
 
-## 📁 Project Structure
+## Configuration
+
+Copy `config/.env.example` to `config/.env` and set:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ALCHEMY_API_KEY` | Recommended | — | Alchemy RPC key for reliable chain access |
+| `ETHERSCAN_API_KEY` | Optional | — | Block explorer API (free tier works) |
+| `ADMIN_API_KEY` | Production | — | API key for protected endpoints |
+| `JWT_SECRET` | Optional | — | HS256 signing key (≥32 chars); enables JWT auth |
+| `DATABASE_URL` | Optional | — | PostgreSQL connection string |
+| `REDIS_URL` | Optional | — | Redis connection string |
+| `RATE_LIMIT_RPM` | Optional | `100` | Max requests per minute per IP |
+| `PORT` | Optional | `8080` | API server port |
+| `CORS_ORIGINS` | Optional | `*` | Comma-separated allowed origins |
+
+> All infrastructure dependencies (PostgreSQL, Redis) are optional. The server degrades gracefully to in-memory caching and local rate limiting when they're unavailable.
+
+---
+
+## API Reference
+
+### Public Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/health` | None | Health check + version info |
+| `GET` | `/metrics` | None | Prometheus-compatible metrics |
+| `GET` | `/api/v1/chains` | None | List all 16 supported chains |
+
+### Protected Endpoints (JWT or API Key)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/scan?wallet=0x...&chains=ethereum,base` | Scan wallet approvals across chains |
+| `GET` | `/api/v1/analyze?contract=0x...&chain=ethereum` | Deep-analyze a single contract |
+| `POST` | `/api/v1/analyze/batch` | Batch analyze up to 10 contracts |
+| `POST` | `/api/v1/auth/token` | Issue JWT token (admin API key required) |
+
+### Authentication
+
+**Option A — API Key:**
+```bash
+curl -H "X-API-Key: YOUR_KEY" http://localhost:8080/api/v1/chains
+```
+
+**Option B — JWT Token:**
+```bash
+# 1. Get token (requires admin API key)
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/token \
+  -H "X-API-Key: ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"sub":"my-app","role":"reader","ttl":"24h"}' | jq -r .token)
+
+# 2. Use token
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/scan?wallet=0x...
+```
+
+### Microservices
+
+| Service | Port | Endpoints |
+|---------|------|-----------|
+| **Decompiler** (Rust) | 3000 | `GET /health` · `POST /analyze` |
+| **Analyzer** (Python) | 5000 | `GET /health` · `POST /api/analyze` · `GET /api/stats` |
+
+---
+
+## Observability
+
+### Prometheus Metrics (`GET /metrics`)
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `sentinel_http_requests_total` | Counter | Requests by endpoint, method, status |
+| `sentinel_http_request_duration_seconds` | Histogram | Latency per endpoint (10ms–10s buckets) |
+| `sentinel_scans_total` | Counter | Wallet scans performed |
+| `sentinel_analyzes_total` | Counter | Contract analyses performed |
+| `sentinel_rate_limit_blocks_total` | Counter | Requests blocked by rate limiter |
+| `sentinel_auth_failures_total` | Counter | Failed authentication attempts |
+| `sentinel_uptime_seconds` | Gauge | Server uptime |
+
+Scrape config for `prometheus.yml`:
+```yaml
+scrape_configs:
+  - job_name: sentinel-api
+    static_configs:
+      - targets: ['sentinel-api:8080']
+```
+
+---
+
+## Project Structure
 
 ```
 SENTINEL/
-├── api/                    # Go API server
-│   ├── cmd/server/main.go
+├── api/                          # Go API server
+│   ├── cmd/server/
+│   │   ├── main.go               # Server, routes, middleware (~2300 lines)
+│   │   ├── database.go           # PostgreSQL client
+│   │   ├── redis.go              # Redis cache + distributed rate limiting
+│   │   ├── metrics.go            # Prometheus metrics (zero dependencies)
+│   │   ├── jwt.go                # JWT auth (HS256, zero dependencies)
+│   │   ├── *_test.go             # Unit, fuzz, integration, benchmark tests
+│   │   └── server.exe            # Compiled binary
 │   ├── Dockerfile
-│   ├── go.mod
-│   └── go.sum
-├── analyzer/               # Python risk analyzer
-│   ├── src/analyzer.py
-│   ├── src/server.py
+│   └── go.mod
+├── analyzer/                     # Python risk analyzer
+│   ├── src/                      # analyzer.py, server.py
 │   ├── tests/
 │   └── requirements.txt
-├── decompiler/             # Rust bytecode analyzer
-│   ├── src/main.rs
-│   ├── src/server.rs
+├── decompiler/                   # Rust bytecode decompiler
+│   ├── src/                      # main.rs, server.rs
 │   └── Cargo.toml
-├── contracts/              # Solidity + Yul
-│   ├── src/SentinelRegistry.sol
+├── contracts/                    # Solidity + Yul smart contracts
+│   ├── src/                      # SentinelRegistry.sol, BatchRevokeYul
 │   ├── test/
 │   └── foundry.toml
-├── frontend/               # React dashboard
-│   ├── src/App.tsx
+├── frontend/                     # React dashboard
+│   ├── src/
+│   │   ├── App.tsx               # Main app (~350 lines)
+│   │   ├── components/           # 9 extracted UI components
+│   │   └── __tests__/            # 54+ Vitest unit tests
 │   └── package.json
-├── config/                 # Environment config
-│   ├── .env
-│   └── .env.example
-├── docker-compose.yml
-├── Makefile
-└── docs/
+├── db/                           # PostgreSQL schema (init.sql)
+├── tests/e2e/                    # End-to-end test suite
+├── config/                       # .env, .env.example
+├── scripts/                      # Build & deploy scripts
+├── .github/workflows/ci.yml     # CI/CD pipeline (6 jobs)
+├── docker-compose.yml            # Full stack (6 services)
+├── Makefile                      # Build, test, Docker shortcuts
+├── TESTING.md                    # Test suite documentation
+├── SECURITY.md                   # Security policy & bug bounty
+└── CONTRIBUTING.md               # Contribution guidelines
 ```
 
 ---
 
-## 🚀 Quick Start
+## Vulnerability Detection
 
-```bash
-# Clone
-git clone https://github.com/conditional-team/sentinel.git
-cd sentinel
-
-# Configure environment
-cp config/.env.example config/.env
-
-# Start all services with Docker
-docker-compose up -d
-
-# Or run individually:
-
-# API Server (Go)
-cd api && go run cmd/server/main.go
-# Runs on http://localhost:8080
-
-# Decompiler (Rust) - Server mode
-cd decompiler && cargo run -- --server --port 3000
-# Runs on http://localhost:3000
-
-# Analyzer (Python) - Server mode  
-cd analyzer && py -3.11 src/server.py
-# Runs on http://localhost:5000
-
-# Frontend (React)
-cd frontend && npm install && npm run dev
-# Runs on http://localhost:5173
-```
+| Category | Patterns |
+|----------|----------|
+| **Token Scams** | Honeypot, hidden mint, hidden fee, blacklist functions |
+| **Approval Risks** | Unlimited allowances, unverified spenders, stale approvals |
+| **Proxy Risks** | Upgradeable without timelock, recent upgrades, implementation mismatch |
+| **Reentrancy** | State changes after external calls, cross-function reentrancy |
+| **Access Control** | Single owner, no multisig, centralized kill switches |
+| **Flash Loan** | Price oracle manipulation, unchecked callbacks |
+| **Logic Bugs** | Integer overflow, unchecked return values, tx.origin auth |
 
 ---
 
-## 📡 API Endpoints
+## Testing
 
-### Go API (Port 8080)
+**~90,000 total test executions** across all components (including fuzz and property-based runs).
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Health check |
-| `GET` | `/api/v1/scan?wallet=0x...&chains=ethereum,polygon` | Scan wallet approvals |
-| `GET` | `/api/v1/analyze?contract=0x...&chain=ethereum` | Analyze single contract |
-| `POST` | `/api/v1/analyze/batch` | Batch analyze contracts |
-| `GET` | `/api/v1/chains` | List supported chains |
+| Component | Tests | Type | Runner |
+|-----------|-------|------|--------|
+| **Go API** | 15,000+ | Unit + Fuzz + Integration + Benchmark | `go test` |
+| **Rust Decompiler** | 20,031 | Unit + Fuzz | `cargo test` |
+| **Solidity Contracts** | 30,000+ | Foundry fuzz (30k runs) | `forge test` |
+| **Python Analyzer** | 12,000+ | Hypothesis property-based | `pytest` |
+| **React Frontend** | 54+ unit, 15,000+ fast-check | Vitest + @testing-library | `npx vitest` |
+| **E2E** | Suite | API integration tests | `go test ./tests/e2e/` |
 
-### Rust Decompiler (Port 3000)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/analyze` | Analyze bytecode |
-
-### Python Analyzer (Port 5000)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/api/analyze` | Analyze contract for vulnerabilities |
-| `GET` | `/api/stats` | Get analyzer statistics |
+See [TESTING.md](TESTING.md) for full details, fuzz configuration, and CI recipes.
 
 ---
 
-## 🔍 How It Works
+## CI/CD Pipeline
 
-1. **User enters wallet address**
-2. **Go API** fetches all interactions across 16 chains (rate-limited)
-3. **Rust Decompiler** analyzes bytecode of each contract
-4. **Python Analyzer** matches patterns, calculates risk scores
-5. **Frontend** displays results with actionable recommendations
+GitHub Actions runs on every push to `main`/`develop` and on PRs:
 
----
-
-## ⚡ Vulnerability Detection
-
-| Category | Patterns Detected |
-|----------|-------------------|
-| **Token Scams** | Honeypot, hidden mint, hidden fee, blacklist |
-| **Approval Risks** | Unlimited approvals, malicious spenders |
-| **Proxy Risks** | Upgradeable without timelock, recent upgrades |
-| **Reentrancy** | State changes after external calls |
-| **Access Control** | Single owner, no multisig, centralization |
-| **Flash Loan** | Vulnerable to price manipulation |
+| Stage | What it does |
+|-------|-------------|
+| **Lint** | golangci-lint, `cargo clippy`, `ruff + mypy`, ESLint, `forge fmt` |
+| **Test** | All 5 language test suites with coverage thresholds |
+| **Build** | Docker images for api, decompiler, analyzer, frontend (GHCR) |
+| **E2E** | Integration tests against Redis + PostgreSQL services |
+| **Security** | `gosec`, `cargo-audit`, `safety`, Slither (smart contracts) |
+| **Deploy** | Contract deployment (on release) + service deployment (on main push) |
 
 ---
 
-## 📜 License
+## Security
 
-MIT License - Use freely, contribute back.
-
----
-
-## 🧪 Testing
-
-**Total Test Executions: ~90,000** (including fuzz and property-based runs)
-
-| Component | Tests | Type |
-|-----------|-------|------|
-| **Rust Decompiler** | 20,031 | Unit + Fuzz |
-| **Solidity Contracts** | 30,000+ | Foundry fuzz (30k runs) |
-| **Go API** | 15,000+ | Unit + Fuzz |
-| **Python Analyzer** | 12,000+ | Hypothesis property-based |
-| **React Frontend** | 15,000+ | Vitest + fast-check |
-
-See [TESTING.md](TESTING.md) for suite details, fuzz configuration, and CI recipes.
+- Rate limiting per IP (Redis distributed + in-memory fallback)
+- JWT (HS256) + API key dual authentication
+- CORS with configurable origins
+- Security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection)
+- Request body size limits (1 MB)
+- Graceful shutdown with 10s drain timeout
+- Bug bounty program — see [SECURITY.md](SECURITY.md)
 
 ---
 
-## 👤 Author
+## License
 
-**SENTINEL Team** - Blockchain Security Engineer
-- GitHub: [@conditional-team](https://github.com/conditional-team)
-- Built with: Go, Rust, Python, Solidity, Yul, TypeScript
+[MIT](LICENSE)
 
 ---
 
-*"Defense built by those who understand offense."*
+<p align="center">
+  <strong>SENTINEL Team</strong> &mdash; <a href="https://github.com/conditional-team">@conditional-team</a><br/>
+  Go · Rust · Python · Solidity · Yul · TypeScript
+</p>
+
+<p align="center"><em>"Defense built by those who understand offense."</em></p>
