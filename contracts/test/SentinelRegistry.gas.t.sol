@@ -260,7 +260,7 @@ contract SentinelGasBenchmarkTest is Test {
         
         // Benchmark
         uint256 gasBefore = gasleft();
-        registry.revokeOperator(address(nfts[0]), spenders[0], false);
+        registry.revokeOperator(address(nfts[0]), spenders[0]);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Operator Revoke Gas", gasUsed);
@@ -312,8 +312,7 @@ contract SentinelGasBenchmarkTest is Test {
         for (uint i = 0; i < 2; i++) {
             opRevokes[i] = SentinelRegistry.OperatorRevoke({
                 collection: address(nfts[i]),
-                operator: spenders[i],
-                isERC1155: false
+                operator: spenders[i]
             });
         }
         

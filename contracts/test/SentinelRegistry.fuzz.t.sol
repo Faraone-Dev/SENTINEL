@@ -299,7 +299,7 @@ contract SentinelRegistryFuzzTest is Test {
         
         // Revoke
         vm.prank(address(this), address(this));
-        registry.revokeOperator(address(nft), operator, false);
+        registry.revokeOperator(address(nft), operator);
         
         // Cleared
         assertFalse(nft.isApprovedForAll(address(this), operator));
@@ -318,7 +318,7 @@ contract SentinelRegistryFuzzTest is Test {
         
         // Revoke
         vm.prank(address(this), address(this));
-        registry.revokeOperator(address(multi), operator, true);
+        registry.revokeOperator(address(multi), operator);
         
         // Cleared
         assertFalse(multi.isApprovedForAll(address(this), operator));
@@ -372,8 +372,7 @@ contract SentinelRegistryFuzzTest is Test {
             nfts[i % NUM_TOKENS].setApprovalForAll(spenders[i % NUM_SPENDERS], true);
             opRevokes[i] = SentinelRegistry.OperatorRevoke({
                 collection: address(nfts[i % NUM_TOKENS]),
-                operator: spenders[i % NUM_SPENDERS],
-                isERC1155: false
+                operator: spenders[i % NUM_SPENDERS]
             });
         }
         

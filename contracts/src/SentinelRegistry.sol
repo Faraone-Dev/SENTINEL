@@ -91,10 +91,10 @@ contract SentinelRegistry {
     }
     
     /// @notice Represents an operator approval to revoke (ERC721/ERC1155)
+    /// @dev setApprovalForAll works identically for both standards
     struct OperatorRevoke {
         address collection;
         address operator;
-        bool isERC1155;
     }
     
     // ═══════════════════════════════════════════════════════════════════════
@@ -248,8 +248,8 @@ contract SentinelRegistry {
     /// @notice Revoke operator approval (ERC721 setApprovalForAll or ERC1155)
     /// @param collection The collection address
     /// @param operator The operator address to revoke
-    /// @param isERC1155 Whether this is an ERC1155 collection
-    function revokeOperator(address collection, address operator, bool isERC1155) external {
+    /// @dev Uses setApprovalForAll(operator, false) which works for both ERC721 and ERC1155
+    function revokeOperator(address collection, address operator) external {
         _revokeOperator(collection, operator);
         emit OperatorRevoked(msg.sender, collection, operator);
     }
