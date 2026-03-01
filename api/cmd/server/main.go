@@ -119,23 +119,23 @@ func initConfig() Config {
 		Port: getEnv("PORT", "8080"),
 		RPC: map[string]string{
 			// 🔵 Ethereum & L2s (Alchemy) - API key from environment
-			"ethereum": "https://eth-mainnet.g.alchemy.com/v2/" + alchemyKey,
-			"arbitrum": "https://arb-mainnet.g.alchemy.com/v2/" + alchemyKey,
-			"optimism": "https://opt-mainnet.g.alchemy.com/v2/" + alchemyKey,
-			"base":     "https://base-mainnet.g.alchemy.com/v2/" + alchemyKey,
-			"zksync":   "https://mainnet.era.zksync.io",
-			"linea":    "https://rpc.linea.build",
-			"scroll":   "https://rpc.scroll.io",
-			"zkevm":    "https://zkevm-rpc.com",
-			// 🟡 Alt L1s
-			"bsc":       "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3",
-			"polygon":   "https://polygon-rpc.com",
-			"avalanche": "https://api.avax.network/ext/bc/C/rpc",
-			"fantom":    "https://rpcapi.fantom.network",
-			"cronos":    "https://evm.cronos.org",
-			"gnosis":    "https://rpc.gnosischain.com",
-			"celo":      "https://forno.celo.org",
-			"moonbeam":  "https://rpc.api.moonbeam.network",
+			"ethereum": getEnv("ETH_RPC_URL", "https://eth-mainnet.g.alchemy.com/v2/"+alchemyKey),
+			"arbitrum": getEnv("ARBITRUM_RPC_URL", "https://arb-mainnet.g.alchemy.com/v2/"+alchemyKey),
+			"optimism": getEnv("OPTIMISM_RPC_URL", "https://opt-mainnet.g.alchemy.com/v2/"+alchemyKey),
+			"base":     getEnv("BASE_RPC_URL", "https://base-mainnet.g.alchemy.com/v2/"+alchemyKey),
+			"zksync":   getEnv("ZKSYNC_RPC_URL", "https://mainnet.era.zksync.io"),
+			"linea":    getEnv("LINEA_RPC_URL", "https://rpc.linea.build"),
+			"scroll":   getEnv("SCROLL_RPC_URL", "https://rpc.scroll.io"),
+			"zkevm":    getEnv("ZKEVM_RPC_URL", "https://zkevm-rpc.com"),
+			// 🟡 Alt L1s - all from environment, no hardcoded API keys
+			"bsc":       getEnv("BSC_RPC_URL", "https://bsc-dataseed.binance.org"),
+			"polygon":   getEnv("POLYGON_RPC_URL", "https://polygon-rpc.com"),
+			"avalanche": getEnv("AVALANCHE_RPC_URL", "https://api.avax.network/ext/bc/C/rpc"),
+			"fantom":    getEnv("FANTOM_RPC_URL", "https://rpcapi.fantom.network"),
+			"cronos":    getEnv("CRONOS_RPC_URL", "https://evm.cronos.org"),
+			"gnosis":    getEnv("GNOSIS_RPC_URL", "https://rpc.gnosischain.com"),
+			"celo":      getEnv("CELO_RPC_URL", "https://forno.celo.org"),
+			"moonbeam":  getEnv("MOONBEAM_RPC_URL", "https://rpc.api.moonbeam.network"),
 		},
 		CacheTTL: 5 * time.Minute,
 	}
@@ -1837,9 +1837,62 @@ func securityHeaders(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// Chain all middlewares
+// API key authentication middleware
+func apiKeyAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		requiredKey := getEnv("ADMIN_API_KEY", "")
+
+		// In dev mode (no key set), allow unauthenticated access with warning
+		if requiredKey == "" {
+			if getEnv("NODE_ENV", "development") == "production" {
+				log.Fatal("FATAL: ADMIN_API_KEY must be set in production!")
+			}
+			log.Println("⚠️  WARNING: No ADMIN_API_KEY configured, endpoints are unprotected")
+			next(w, r)
+			return
+		}
+
+		// Reject placeholder values in production
+		if strings.HasPrefix(requiredKey, "change-me") || strings.HasPrefix(requiredKey, "CHANGE_ME") {
+			if getEnv("NODE_ENV", "development") == "production" {
+				log.Fatal("FATAL: ADMIN_API_KEY still has placeholder value!")
+			}
+			log.Println("⚠️  WARNING: ADMIN_API_KEY has placeholder value, auth bypassed in dev mode")
+			next(w, r)
+			return
+		}
+
+		// Check X-API-Key header
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey == "" {
+			// Also check Authorization: Bearer <key>
+			auth := r.Header.Get("Authorization")
+			if strings.HasPrefix(auth, "Bearer ") {
+				apiKey = strings.TrimPrefix(auth, "Bearer ")
+			}
+		}
+
+		if apiKey != requiredKey {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "unauthorized: invalid or missing API key",
+			})
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+// Chain all middlewares (public endpoints)
 func withMiddleware(handler http.HandlerFunc) http.HandlerFunc {
 	return securityHeaders(corsMiddleware(rateLimitMiddleware(handler)))
+}
+
+// Chain all middlewares + auth (protected endpoints)
+func withAuth(handler http.HandlerFunc) http.HandlerFunc {
+	return securityHeaders(corsMiddleware(rateLimitMiddleware(apiKeyAuthMiddleware(handler))))
 }
 
 // Health check
@@ -2096,12 +2149,15 @@ func main() {
 
 	server := NewServer()
 
-	// Routes with full middleware chain (security headers + CORS + rate limiting)
+	// Routes with full middleware chain
+	// Public endpoints (no auth required)
 	http.HandleFunc("/health", corsMiddleware(server.handleHealth))
-	http.HandleFunc("/api/v1/scan", withMiddleware(server.handleScan))
 	http.HandleFunc("/api/v1/chains", withMiddleware(server.handleChains))
-	http.HandleFunc("/api/v1/analyze", withMiddleware(server.handleAnalyze))
-	http.HandleFunc("/api/v1/analyze/batch", withMiddleware(server.handleBatchAnalyze))
+
+	// Protected endpoints (API key required in production)
+	http.HandleFunc("/api/v1/scan", withAuth(server.handleScan))
+	http.HandleFunc("/api/v1/analyze", withAuth(server.handleAnalyze))
+	http.HandleFunc("/api/v1/analyze/batch", withAuth(server.handleBatchAnalyze))
 
 	// Start server
 	port := os.Getenv("PORT")
