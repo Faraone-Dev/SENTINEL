@@ -1,409 +1,130 @@
-# 🧪 SENTINEL - Test Suite Documentation
+# SENTINEL — Testing Guide
 
-> **Comprehensive testing documentation for the SENTINEL security analysis platform**
+Complete test coverage across **6 components**, **5 languages**, **~90 000 test executions**.
+
+## Overview
+
+| Component | Language | Tests | Type | Command |
+|-----------|----------|------:|------|---------|
+| API | Go | 2 500+ | Unit · Integration · Fuzz · Benchmark | `go test ./...` |
+| Frontend | TypeScript | 35 590 | Unit · Property-based · A11y | `npx vitest run` |
+| Contracts | Solidity | 30 000+ | Unit · Fuzz (Foundry) | `forge test` |
+| Analyzer | Python | 12 000+ | Unit · Property (Hypothesis) | `pytest` |
+| Decompiler | Rust | 20 000+ | Unit · Integration | `cargo test` |
+| E2E | Go + TS | 150+ | End-to-end | CI only |
 
 ---
 
-## 📊 Test Summary
+## Prerequisites
 
-**Latest full run estimate:** **~89,959 total executions** (includes fuzz/property-based runs).
-
-Use the sections below to run each suite locally. Some suites generate large fuzz sets and can take several minutes depending on your machine.
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Go | ≥ 1.22 | API tests |
+| Node.js | ≥ 18 | Frontend tests |
+| Foundry | latest | Contract fuzz tests |
+| Python | ≥ 3.11 | Analyzer tests |
+| Rust | stable | Decompiler tests |
+| Docker | ≥ 24 | Integration / E2E |
 
 ---
 
-## 🔧 Prerequisites
+## Test Files
 
-### System Requirements
+### Go API (`api/cmd/server/`)
 
-| Tool | Version | Installation |
-|------|---------|--------------|
-| Go | 1.22+ | `winget install -e --id GoLang.Go` |
-| Python | 3.11+ | `winget install -e --id Python.Python.3.11` |
-| Rust | stable | `winget install -e --id Rustlang.Rustup` |
-| Foundry | 1.5.1+ | `curl -L https://foundry.paradigm.xyz \| bash` |
-| MSYS2 | latest | `winget install -e --id MSYS2.MSYS2` |
+| File | Scope |
+|------|-------|
+| `main_test.go` | Core endpoint unit tests |
+| `comprehensive_test.go` | Full API surface coverage |
+| `main_integration_test.go` | DB + Redis integration |
+| `fuzz_test.go` | Input fuzzing (addresses, payloads) |
+| `fuzz_comprehensive_test.go` | Extended fuzz campaigns |
+| `mega_fuzz_test.go` | Long-running fuzz with corpus |
+| `benchmark_test.go` | Latency and throughput benchmarks |
 
-### Python Dependencies
+### Frontend (`frontend/src/__tests__/`)
+
+| File | Tests | Scope |
+|------|------:|-------|
+| `ComponentUnits.test.tsx` | 54 | Isolated component rendering |
+| `Components.test.tsx` | 10 000+ | Parameterized component variants |
+| `PropertyBased.test.tsx` | 10 000+ | fast-check property invariants |
+| `Integration.test.tsx` | 5 000+ | Multi-component flows |
+| `Accessibility.test.tsx` | 5 000+ | WCAG / ARIA compliance |
+| `AddressValidation.test.tsx` | 5 000+ | Address format edge cases |
+
+### Solidity (`contracts/`)
+
+Foundry fuzz tests with configurable runs (`foundry.toml → fuzz.runs`).
+
+### Python Analyzer (`analyzer/`)
+
+Hypothesis-based property tests + standard pytest unit tests.
+
+### Rust Decompiler (`decompiler/`)
+
+`cargo test` — unit + integration across all crates.
+
+---
+
+## Running Tests
 
 ```bash
-pip install pytest pytest-asyncio pytest-xprocess anyio
+# Go — all tests (unit + integration + fuzz)
+cd api/cmd/server && go test -v -count=1 ./...
+
+# Go — benchmarks only
+go test -bench=. -benchmem ./...
+
+# Go — fuzz (10 s per target)
+go test -fuzz=FuzzAnalyzeWallet -fuzztime=10s
+
+# Frontend
+cd frontend && npx vitest run
+
+# Contracts
+cd contracts && forge test -vvv
+
+# Analyzer
+cd analyzer && pytest -v
+
+# Decompiler
+cd decompiler && cargo test
 ```
 
-### Rust Toolchain (Windows)
+---
 
-```powershell
-# Install MSYS2 GCC for Rust GNU toolchain
-C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-gcc"
-
-# Configure Rust to use GNU toolchain
-rustup default stable-x86_64-pc-windows-gnu
-```
-
-### Foundry Setup
+## Coverage
 
 ```bash
-cd SENTINEL/contracts
-forge install foundry-rs/forge-std --no-commit
+# Go
+go test -coverprofile=cover.out ./... && go tool cover -html=cover.out
+
+# Frontend
+npx vitest run --coverage
+
+# Contracts
+forge coverage
+
+# Python
+pytest --cov=. --cov-report=html
+
+# Rust
+cargo tarpaulin --out Html
 ```
+
+Current thresholds enforced in CI: **Go ≥ 80 %**, **Frontend ≥ 75 %**.
 
 ---
 
-## 🚀 Running Tests
+## CI/CD Integration
 
-### Go Tests (API Server)
+All tests run automatically on every push and PR via `.github/workflows/ci.yml`.
 
-```powershell
-cd SENTINEL/api
+The pipeline spins up **PostgreSQL 15** and **Redis 7** as service containers for integration and E2E jobs. See [ci.yml](../.github/workflows/ci.yml) for full configuration.
 
-# Run all tests
-go test -v ./...
-
-# Run with count (no cache)
-go test -v -count=1 ./...
-
-# Run specific test
-go test -v -run TestScanner_RiskScoreCalculation ./cmd/server
-
-# Run benchmarks
-go test -bench=. ./...
-
-# Run fuzz tests
-go test -fuzz=FuzzRiskScore -fuzztime=30s ./cmd/server
-```
-
-**Expected Output:**
-```
-PASS
-ok      sentinel/cmd/server     12.345s
---- PASS: TestScanner_RiskScoreCalculation (0.00s)
---- PASS: FuzzRiskScore (0.00s)
-```
-
-### Python Tests (Analyzer Engine)
-
-```powershell
-# From repo root - integration-style tests
-$env:PYTHONPATH="$PWD/analyzer/src"
-py -3.11 -m pytest tests/python -v
-
-# Minimal output
-$env:PYTHONPATH="$PWD/analyzer/src"
-py -3.11 -m pytest tests/python -q --tb=no
-
-# Run a specific test file
-$env:PYTHONPATH="$PWD/analyzer/src"
-py -3.11 -m pytest tests/python/test_core.py -v
-
-# Run with coverage
-$env:PYTHONPATH="$PWD/analyzer/src"
-py -3.11 -m pytest tests/python --cov=analyzer --cov-report=html
-
-# Local analyzer tests only
-cd analyzer
-py -3.11 -m pytest -q
-```
-
-### Rust Tests (EVM Decompiler)
-
-```powershell
-cd SENTINEL/decompiler
-
-# Run all tests
-cargo test
-
-# Run with verbose output
-cargo test -- --nocapture
-
-# Run specific test
-cargo test test_decompile_basic
-
-# Run doc tests
-cargo test --doc
-
-# Run with release optimizations
-cargo test --release
-```
-
-**Latest Output (2026-01-18):**
-```
-running 20031 tests
-test result: ok. 20031 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-```
-
-### Solidity Tests (Smart Contracts)
-
-```powershell
-cd SENTINEL/contracts
-
-# Run all tests
-forge test
-
-# Run with verbosity
-forge test -vvv
-
-# Run with fuzz iterations
-forge test --fuzz-runs 5000
-
-# Run specific test file
-forge test --match-path test/SentinelRegistry.t.sol
-
-# Run specific test function
-forge test --match-test testRegisterContract
-
-# Run invariant tests
-forge test --match-contract Invariant
-
-# Gas report
-forge test --gas-report
-```
-
-**Latest Output (2026-01-18):**
-```
-Ran 18 test suites in 78.84s (201.38s CPU time): 122 tests passed, 0 failed, 0 skipped (122 total tests)
-Fuzz runs set to 30000 for fuzz tests.
-```
+**Jobs:** Lint → Test → Build → E2E → Security → Deploy
 
 ---
 
-## 📁 Test Structure
-
-```
-SENTINEL/
-├── api/                          # Go API Server
-│   └── cmd/server/
-│       ├── main_test.go          # Unit tests
-│       ├── benchmark_test.go     # Performance benchmarks
-│       ├── integration_test.go   # Integration tests
-│       └── fuzz_test.go          # Fuzz tests
-│
-├── analyzer/                     # Python Analyzer
-│   └── tests/                     # Local unit tests
-│
-├── tests/python/                 # Python Analyzer
-│   ├── test_core.py              # Core functionality
-│   ├── test_pro_features.py      # Pro features
-│   ├── test_integration.py       # Integration tests
-│   └── test_analyzer.py          # Analyzer (requires src module)
-│
-├── decompiler/                   # Rust Decompiler
-│   └── src/
-│       ├── main.rs               # Unit tests (35)
-│       └── server.rs             # Server tests
-│
-└── contracts/test/               # Solidity Smart Contracts
-    ├── SentinelRegistry.t.sol           # Registry tests
-    ├── SentinelRegistry.invariant.t.sol # Invariant tests
-    ├── ApprovalRevoke.t.sol             # Approval tests
-    └── ApprovalRevoke.fuzz.t.sol        # Fuzz tests
-```
-
----
-
-## ⚙️ Configuration Files
-
-### foundry.toml (Solidity)
-
-```toml
-[profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
-solc = "0.8.24"
-optimizer = true
-optimizer_runs = 200
-fuzz = { runs = 5000, max_test_rejects = 100000 }
-invariant = { runs = 1000, depth = 50 }
-
-[profile.ci]
-fuzz = { runs = 10000 }
-```
-
-### pytest.ini (Python)
-
-```ini
-[pytest]
-asyncio_mode = auto
-asyncio_default_fixture_loop_scope = function
-testpaths = tests/python
-python_files = test_*.py
-python_functions = test_*
-```
-
----
-
-## 🔍 Debugging Failed Tests
-
-### Go
-
-```powershell
-# Run with race detector
-go test -race -v ./...
-
-# Run with CPU profile
-go test -cpuprofile=cpu.prof -memprofile=mem.prof -v ./...
-```
-
-### Python
-
-```powershell
-# Show full traceback
-python -m pytest tests/python -v --tb=long
-
-# Stop on first failure
-python -m pytest tests/python -x
-
-# Debug with pdb
-python -m pytest tests/python --pdb
-```
-
-### Rust
-
-```powershell
-# Show backtrace
-$env:RUST_BACKTRACE=1; cargo test
-
-# Run ignored tests
-cargo test -- --ignored
-```
-
-### Solidity
-
-```bash
-# Maximum verbosity
-forge test -vvvvv
-
-# Show gas traces
-forge test --gas-report -vvv
-
-# Debug specific test
-forge debug --debug test/SentinelRegistry.t.sol --sig "testRegisterContract()"
-```
-
----
-
-## 🏃 Quick Commands
-
-| Action | Command |
-|--------|---------|
-| **All Go tests** | `cd api && go test -v ./...` |
-| **All Python tests** | `cd SENTINEL && $env:PYTHONPATH="$PWD/analyzer/src"; py -3.11 -m pytest tests/python -q --tb=no` |
-| **All Rust tests** | `cd decompiler && cargo test` |
-| **All Solidity tests** | `cd contracts && forge test` |
-| **Full test suite** | See [run-all-tests.ps1](#full-test-script) |
-
----
-
-## 📝 Full Test Script
-
-Create `run-all-tests.ps1`:
-
-```powershell
-#!/usr/bin/env pwsh
-# SENTINEL - Complete Test Runner
-
-$ErrorActionPreference = "Continue"
-$root = $PSScriptRoot
-
-Write-Host "`n========== SENTINEL TEST SUITE ==========" -ForegroundColor Cyan
-
-# Go Tests
-Write-Host "`n[1/4] Running Go Tests..." -ForegroundColor Yellow
-Set-Location "$root/api"
-$goResult = go test -v -count=1 ./... 2>&1
-$goPassed = ($goResult | Select-String "--- PASS" | Measure-Object -Line).Lines
-Write-Host "Go: $goPassed tests passed" -ForegroundColor Green
-
-# Python Tests
-Write-Host "`n[2/4] Running Python Tests..." -ForegroundColor Yellow
-Set-Location $root
-$env:PYTHONPATH = "$root/analyzer/src"
-$pyResult = py -3.11 -m pytest tests/python -q --tb=no 2>&1
-$pyLine = $pyResult | Select-String "passed"
-Write-Host "Python: $pyLine" -ForegroundColor Green
-
-# Rust Tests
-Write-Host "`n[3/4] Running Rust Tests..." -ForegroundColor Yellow
-Set-Location "$root/decompiler"
-$rustResult = cargo test 2>&1
-$rustLine = $rustResult | Select-String "test result"
-Write-Host "Rust: $rustLine" -ForegroundColor Green
-
-# Solidity Tests
-Write-Host "`n[4/4] Running Solidity Tests..." -ForegroundColor Yellow
-Set-Location "$root/contracts"
-$solResult = forge test --fuzz-runs 1000 2>&1
-$solLine = $solResult | Select-String "test suites"
-Write-Host "Solidity: $solLine" -ForegroundColor Green
-
-Write-Host "`n========== TEST COMPLETE ==========" -ForegroundColor Cyan
-Set-Location $root
-```
-
----
-
-## 🐛 Known Issues
-
-| Issue | Status | Workaround |
-|-------|--------|------------|
-| Pytest asyncio warning about `asyncio_default_fixture_loop_scope` | ℹ️ | Set it in pytest.ini or ignore the warning for now |
-| Foundry not installed (`forge` not found) | ⚠️ | Install Foundry via `foundryup` and ensure it’s on PATH |
-| Rust unsigned comparison warnings in omni tests | ℹ️ | Harmless warnings from generated tests |
-
----
-
-## 📈 CI/CD Integration
-
-### GitHub Actions Example
-
-```yaml
-name: SENTINEL Tests
-
-on: [push, pull_request]
-
-jobs:
-  go-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-      - run: cd api && go test -v ./...
-
-  python-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install pytest pytest-asyncio
-      - run: python -m pytest tests/python -q
-
-  rust-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cd decompiler && cargo test
-
-  solidity-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: foundry-rs/foundry-toolchain@v1
-      - run: cd contracts && forge test --fuzz-runs 5000
-```
-
----
-
-## 📞 Support
-
-- **Issues**: Open a GitHub issue with test logs
-- **Logs Location**: `SENTINEL/logs/`
-- **Documentation**: See [README.md](README.md)
-
----
-
-*Last updated: 2026-01-19*
+*Last updated: 2026-03-01*
