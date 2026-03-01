@@ -36,7 +36,7 @@ func FuzzAddressValidation(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, addr string) {
 		valid := isValidAddress(addr)
-		
+
 		// Property: if valid, must be exactly 42 chars and start with 0x
 		if valid {
 			if len(addr) != 42 {
@@ -61,12 +61,12 @@ func FuzzChainParsing(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, chain string) {
 		supported := isSupportedChain(chain)
-		
+
 		// Property: empty chain is never supported
 		if chain == "" && supported {
 			t.Error("Empty chain should not be supported")
 		}
-		
+
 		// Property: known chains are always supported (case-insensitive)
 		knownChains := []string{"ethereum", "bsc", "polygon", "arbitrum", "base", "optimism", "avalanche", "fantom", "zksync", "solana"}
 		for _, known := range knownChains {
@@ -89,7 +89,7 @@ func FuzzScanRequestParsing(f *testing.F) {
 	f.Fuzz(func(t *testing.T, body string) {
 		var req TestScanRequest
 		err := json.Unmarshal([]byte(body), &req)
-		
+
 		if err == nil {
 			// Property: valid JSON must have address and chains fields
 			// (they may be empty, but parseable)
@@ -119,12 +119,12 @@ func FuzzRiskScore(f *testing.F) {
 		}
 
 		score := calculateRiskScore(criticalCount, highCount, mediumCount)
-		
+
 		// Property: score must be between 0 and 100
 		if score < 0 || score > 100 {
 			t.Errorf("Score %d out of bounds [0,100]", score)
 		}
-		
+
 		// Property: more issues = higher score
 		scoreMore := calculateRiskScore(criticalCount+1, highCount, mediumCount)
 		if scoreMore < score {
@@ -139,14 +139,14 @@ func FuzzRiskScore(f *testing.F) {
 
 func TestProperty_CacheConsistency(t *testing.T) {
 	cache := NewCache(time.Minute)
-	
+
 	// Property: Get after Set should return same value
 	for i := 0; i < 100; i++ {
 		key := fmt.Sprintf("key-%d", rand.Intn(1000))
 		value := fmt.Sprintf("value-%d", rand.Intn(1000))
-		
+
 		cache.Set(key, value)
-		
+
 		got, found := cache.Get(key)
 		if !found {
 			t.Errorf("Key %s not found after Set", key)
@@ -160,12 +160,12 @@ func TestProperty_CacheConsistency(t *testing.T) {
 
 func TestProperty_CacheExpiration(t *testing.T) {
 	cache := NewCache(10 * time.Millisecond)
-	
+
 	// Property: Expired items should not be found
 	cache.Set("expires-soon", "value")
-	
+
 	time.Sleep(20 * time.Millisecond)
-	
+
 	_, found := cache.Get("expires-soon")
 	if found {
 		t.Error("Expired item should not be found")
@@ -178,17 +178,17 @@ func TestProperty_ScannerIdempotent(t *testing.T) {
 			"ethereum": &MockTestChainScanner{},
 		},
 	}
-	
+
 	// Property: Multiple scans of same address should return consistent results
 	addr := "0x742d35Cc6634C0532925a3b844Bc9e7595f5b2e1"
-	
+
 	result1, err1 := scanner.Scan(context.Background(), addr, []string{"ethereum"})
 	result2, err2 := scanner.Scan(context.Background(), addr, []string{"ethereum"})
-	
+
 	if err1 != nil || err2 != nil {
 		t.Skip("Scan error, skipping consistency check")
 	}
-	
+
 	// Same input should give same output (deterministic)
 	if len(result1.Approvals) != len(result2.Approvals) {
 		t.Error("Scan results inconsistent")
@@ -206,10 +206,10 @@ func TestProperty_RiskCategorization(t *testing.T) {
 		{75, "high"},
 		{100, "critical"},
 	}
-	
+
 	for _, tc := range testCases {
 		category := categorizeRisk(tc.score)
-		
+
 		// Property: Categories should be monotonic with score
 		if tc.score == 0 && category != "safe" {
 			t.Errorf("Score 0 should be safe, got %s", category)
@@ -227,22 +227,22 @@ func TestProperty_RiskCategorization(t *testing.T) {
 func TestConcurrency_CacheThreadSafe(t *testing.T) {
 	cache := NewCache(time.Minute)
 	var wg sync.WaitGroup
-	
+
 	// Concurrent writes and reads
 	for i := 0; i < 100; i++ {
 		wg.Add(2)
-		
+
 		go func(n int) {
 			defer wg.Done()
 			cache.Set(fmt.Sprintf("key-%d", n), fmt.Sprintf("value-%d", n))
 		}(i)
-		
+
 		go func(n int) {
 			defer wg.Done()
 			cache.Get(fmt.Sprintf("key-%d", n))
 		}(i)
 	}
-	
+
 	wg.Wait()
 	// Test passes if no race conditions
 }
@@ -255,10 +255,10 @@ func TestConcurrency_ScannerParallel(t *testing.T) {
 			"polygon":  &MockTestChainScanner{},
 		},
 	}
-	
+
 	var wg sync.WaitGroup
 	errors := make(chan error, 10)
-	
+
 	// Parallel scans
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -271,10 +271,10 @@ func TestConcurrency_ScannerParallel(t *testing.T) {
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 	close(errors)
-	
+
 	for err := range errors {
 		t.Errorf("Parallel scan error: %v", err)
 	}
@@ -282,9 +282,9 @@ func TestConcurrency_ScannerParallel(t *testing.T) {
 
 func TestConcurrency_CacheHTTPSafe(t *testing.T) {
 	cache := NewCache(time.Minute)
-	
+
 	var wg sync.WaitGroup
-	
+
 	for i := 0; i < 50; i++ {
 		wg.Add(1)
 		go func(n int) {
@@ -294,7 +294,7 @@ func TestConcurrency_CacheHTTPSafe(t *testing.T) {
 			cache.Get(key)
 		}(i)
 	}
-	
+
 	wg.Wait()
 }
 
@@ -304,18 +304,18 @@ func TestConcurrency_CacheHTTPSafe(t *testing.T) {
 
 func TestStress_CacheEviction(t *testing.T) {
 	cache := NewCache(time.Minute)
-	
+
 	// Fill cache with many entries
 	for i := 0; i < 10000; i++ {
 		cache.Set(fmt.Sprintf("stress-key-%d", i), fmt.Sprintf("value-%d", i))
 	}
-	
+
 	// Verify some entries exist
 	_, found := cache.Get("stress-key-0")
 	if !found {
 		t.Error("First entry should exist")
 	}
-	
+
 	_, found = cache.Get("stress-key-9999")
 	if !found {
 		t.Error("Last entry should exist")
@@ -332,18 +332,18 @@ func TestStress_LargeBatchScan(t *testing.T) {
 			"base":     &MockTestChainScanner{},
 		},
 	}
-	
+
 	// Scan all chains
 	chains := []string{"ethereum", "bsc", "polygon", "arbitrum", "base"}
-	
+
 	start := time.Now()
 	result, err := scanner.Scan(context.Background(), "0x742d35Cc6634C0532925a3b844Bc9e7595f5b2e1", chains)
 	elapsed := time.Since(start)
-	
+
 	if err != nil {
 		t.Fatalf("Scan failed: %v", err)
 	}
-	
+
 	t.Logf("Scanned %d chains in %v", len(chains), elapsed)
 	t.Logf("Found %d total approvals", len(result.Approvals))
 }
@@ -351,21 +351,6 @@ func TestStress_LargeBatchScan(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════════
 //                      HELPER FUNCTIONS & MOCKS
 // ═══════════════════════════════════════════════════════════════════════════
-
-func isValidAddress(addr string) bool {
-	if len(addr) != 42 {
-		return false
-	}
-	if !strings.HasPrefix(addr, "0x") {
-		return false
-	}
-	for _, c := range addr[2:] {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-			return false
-		}
-	}
-	return true
-}
 
 func isSupportedChain(chain string) bool {
 	supported := map[string]bool{
