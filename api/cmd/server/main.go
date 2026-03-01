@@ -70,10 +70,11 @@ var _ = loadEnv()
 
 func loadEnv() bool {
 	envPaths := []string{
-		"../../config/.env", // From cmd/server/
-		"../config/.env",    // From api/
-		"config/.env",       // From project root
-		".env",              // Current directory
+		"../../../config/.env", // From api/cmd/server/ → SENTINEL/config/
+		"../../config/.env",    // From cmd/server/
+		"../config/.env",       // From api/
+		"config/.env",          // From project root
+		".env",                 // Current directory
 	}
 
 	// Also try absolute path based on executable location
