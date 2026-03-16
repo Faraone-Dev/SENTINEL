@@ -176,6 +176,7 @@ const ApprovalList: React.FC<{
               type="checkbox"
               checked={selected.has(approval.id)}
               onChange={() => toggleSelect(approval.id)}
+              aria-label={`Select ${approval.symbol} approval`}
             />
             <span className="token">{approval.symbol}</span>
             <span className="spender">{approval.spenderName}</span>
