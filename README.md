@@ -104,7 +104,7 @@ SENTINEL scans wallet approvals across **16 mainnet EVM chains**, decompiles con
 ### Docker (recommended)
 
 ```bash
-git clone https://github.com/conditional-team/SENTINEL.git
+git clone https://github.com/Faraone-Dev/SENTINEL.git
 cd SENTINEL
 cp config/.env.example config/.env    # edit with your RPC keys
 docker-compose up -d                  # starts all 6 services
@@ -350,7 +350,7 @@ GitHub Actions runs on every push to `main`/`develop` and on PRs:
 ---
 
 <p align="center">
-  <strong>SENTINEL Team</strong> &mdash; <a href="https://github.com/conditional-team">@conditional-team</a><br/>
+  <strong>SENTINEL Team</strong> &mdash; <a href="https://github.com/Faraone-Dev">@Faraone-Dev</a><br/>
   Go · Rust · Python · Solidity · Yul · TypeScript
 </p>
 
