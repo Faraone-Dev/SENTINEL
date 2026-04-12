@@ -162,10 +162,10 @@ mod disassembler_tests {
         let bytecode = vec![
             0x60, 0x80, // PUSH1 0x80
             0x60, 0x40, // PUSH1 0x40
-            0x52,       // MSTORE
-            0x34,       // CALLVALUE
-            0x80,       // DUP1
-            0x15,       // ISZERO
+            0x52, // MSTORE
+            0x34, // CALLVALUE
+            0x80, // DUP1
+            0x15, // ISZERO
         ];
         let result = Disassembler::disassemble(&bytecode).unwrap();
         assert_eq!(result.len(), 6);
@@ -185,7 +185,7 @@ mod cfg_tests {
         let bytecode = vec![0x00]; // STOP
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let cfg = ControlFlowGraph::build(&instructions);
-        
+
         assert_eq!(cfg.block_count(), 1);
         assert!(cfg.entry.is_some());
     }
@@ -196,7 +196,7 @@ mod cfg_tests {
         let bytecode = vec![0x60, 0x04, 0x56, 0x5B, 0x00];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let cfg = ControlFlowGraph::build(&instructions);
-        
+
         // Should have 2 blocks: before jump and at jumpdest
         assert!(cfg.block_count() >= 2);
     }
@@ -207,7 +207,7 @@ mod cfg_tests {
         let bytecode = vec![0x60, 0x00, 0x60, 0x08, 0x57, 0x60, 0x01, 0x00, 0x5B, 0x00];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let cfg = ControlFlowGraph::build(&instructions);
-        
+
         assert!(cfg.block_count() >= 2);
     }
 }
@@ -225,7 +225,7 @@ mod security_tests {
         let bytecode = vec![0xFF]; // SELFDESTRUCT
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert!(analysis.has_selfdestruct);
         assert!(!analysis.risk_indicators.is_empty());
     }
@@ -235,7 +235,7 @@ mod security_tests {
         let bytecode = vec![0xF4]; // DELEGATECALL
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert!(analysis.has_delegatecall);
         assert_eq!(analysis.external_calls, 1);
     }
@@ -245,7 +245,7 @@ mod security_tests {
         let bytecode = vec![0xF0, 0xF5]; // CREATE, CREATE2
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert!(analysis.has_create);
     }
 
@@ -255,8 +255,10 @@ mod security_tests {
         let bytecode = vec![0x63, 0x12, 0x34, 0x56, 0x78, 0x14];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
-        assert!(analysis.function_selectors.contains(&"0x12345678".to_string()));
+
+        assert!(analysis
+            .function_selectors
+            .contains(&"0x12345678".to_string()));
     }
 
     #[test]
@@ -268,7 +270,7 @@ mod security_tests {
         ];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert_eq!(analysis.function_selectors.len(), 2);
     }
 
@@ -278,7 +280,7 @@ mod security_tests {
         let bytecode = vec![0xF1, 0xFA, 0xF1];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert_eq!(analysis.external_calls, 3);
     }
 
@@ -288,7 +290,7 @@ mod security_tests {
         let bytecode = vec![0x55, 0x55];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert_eq!(analysis.storage_writes, 2);
     }
 
@@ -298,7 +300,7 @@ mod security_tests {
         let bytecode = vec![0x01, 0x02, 0x03, 0x04]; // ADD MUL SUB DIV
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert!(!analysis.has_selfdestruct);
         assert!(!analysis.has_delegatecall);
         assert!(!analysis.has_create);
@@ -318,7 +320,7 @@ mod decompiler_tests {
     fn test_decompile_minimal() {
         let bytecode = vec![0x00]; // STOP
         let result = Decompiler::decompile(&bytecode).unwrap();
-        
+
         assert_eq!(result.bytecode_size, 1);
         assert_eq!(result.instruction_count, 1);
         assert!(!result.bytecode_hash.is_empty());
@@ -328,7 +330,7 @@ mod decompiler_tests {
     fn test_decompile_hash() {
         let bytecode = vec![0x60, 0x80, 0x60, 0x40, 0x52];
         let result = Decompiler::decompile(&bytecode).unwrap();
-        
+
         // Hash should start with 0x
         assert!(result.bytecode_hash.starts_with("0x"));
         assert_eq!(result.bytecode_hash.len(), 66); // 0x + 64 hex chars
@@ -340,23 +342,26 @@ mod decompiler_tests {
         let bytecode = vec![
             0x60, 0x80, // PUSH1 0x80
             0x60, 0x40, // PUSH1 0x40
-            0x52,       // MSTORE
+            0x52, // MSTORE
             0x60, 0x04, // PUSH1 0x04
-            0x36,       // CALLDATASIZE
-            0x10,       // LT
+            0x36, // CALLDATASIZE
+            0x10, // LT
             0x60, 0x1C, // PUSH1 0x1C
-            0x57,       // JUMPI
+            0x57, // JUMPI
             0x60, 0x00, // PUSH1 0x00
-            0x35,       // CALLDATALOAD
+            0x35, // CALLDATALOAD
             0x60, 0xE0, // PUSH1 0xE0
-            0x1C,       // SHR
+            0x1C, // SHR
             0x63, 0x09, 0x5e, 0xa7, 0xb3, // PUSH4 approve selector
-            0x14,       // EQ
+            0x14, // EQ
         ];
         let result = Decompiler::decompile(&bytecode).unwrap();
-        
+
         assert!(result.instruction_count > 0);
-        assert!(result.security.function_selectors.contains(&"0x095ea7b3".to_string()));
+        assert!(result
+            .security
+            .function_selectors
+            .contains(&"0x095ea7b3".to_string()));
     }
 }
 
@@ -378,11 +383,19 @@ mod integration_tests {
         let output = Decompiler::decompile(&bytecode).unwrap();
 
         // Should detect mint function
-        assert!(output.security.function_selectors.iter().any(|s| s == "0x40c10f19"));
-        
+        assert!(output
+            .security
+            .function_selectors
+            .iter()
+            .any(|s| s == "0x40c10f19"));
+
         // Should detect pause function
-        assert!(output.security.function_selectors.iter().any(|s| s == "0x8456cb59"));
-        
+        assert!(output
+            .security
+            .function_selectors
+            .iter()
+            .any(|s| s == "0x8456cb59"));
+
         // Should have complexity score
         assert!(output.security.complexity_score > 0);
     }
@@ -393,11 +406,11 @@ mod integration_tests {
         let bytecode = vec![0x32]; // ORIGIN
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let _analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         // Test passes if no panic
         assert!(true);
     }
-    
+
     #[test]
     fn test_never_panics_random_input() {
         // Decompiler should never panic on any input

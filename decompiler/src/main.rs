@@ -8,23 +8,23 @@
  ╚══════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 
   SENTINEL SHIELD - EVM Bytecode Decompiler (Rust)
-  
+
   High-performance bytecode analysis engine that extracts:
   - Function selectors
   - Control flow graphs
   - Dangerous opcodes
   - Reentrancy patterns
   - Hidden fee logic
-  
-  
+
+
  ═══════════════════════════════════════════════════════════════════════════════
 */
 
-use std::collections::{HashMap, HashSet};
 use clap::Parser;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use petgraph::graph::{DiGraph, NodeIndex};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use thiserror::Error;
 
 mod server;
 
@@ -50,27 +50,27 @@ struct Args {
     /// Bytecode hex string (with or without 0x prefix)
     #[arg(short, long)]
     bytecode: Option<String>,
-    
+
     /// Contract address to fetch bytecode from
     #[arg(short, long)]
     address: Option<String>,
-    
+
     /// Chain to query (ethereum, bsc, polygon, etc.)
     #[arg(short, long, default_value = "ethereum")]
     chain: String,
-    
+
     /// Output format: json, text, or graph
     #[arg(short, long, default_value = "json")]
     output: String,
-    
+
     /// Enable verbose logging
     #[arg(short, long)]
     verbose: bool,
-    
+
     /// Run as HTTP server
     #[arg(long)]
     server: bool,
-    
+
     /// Port for HTTP server (default: 3000)
     #[arg(short, long, default_value = "3000")]
     port: u16,
@@ -84,13 +84,13 @@ struct Args {
 pub enum DecompilerError {
     #[error("Invalid bytecode: {0}")]
     InvalidBytecode(String),
-    
+
     #[error("Invalid opcode at position {position}: 0x{opcode:02x}")]
     InvalidOpcode { position: usize, opcode: u8 },
-    
+
     #[error("RPC error: {0}")]
     RpcError(String),
-    
+
     #[error("Parse error: {0}")]
     ParseError(String),
 }
@@ -117,7 +117,7 @@ pub enum Opcode {
     MULMOD = 0x09,
     EXP = 0x0A,
     SIGNEXTEND = 0x0B,
-    
+
     // Comparison & Bitwise
     LT = 0x10,
     GT = 0x11,
@@ -133,10 +133,10 @@ pub enum Opcode {
     SHL = 0x1B,
     SHR = 0x1C,
     SAR = 0x1D,
-    
+
     // Keccak256
     SHA3 = 0x20,
-    
+
     // Environment
     ADDRESS = 0x30,
     BALANCE = 0x31,
@@ -154,7 +154,7 @@ pub enum Opcode {
     RETURNDATASIZE = 0x3D,
     RETURNDATACOPY = 0x3E,
     EXTCODEHASH = 0x3F,
-    
+
     // Block info
     BLOCKHASH = 0x40,
     COINBASE = 0x41,
@@ -165,7 +165,7 @@ pub enum Opcode {
     CHAINID = 0x46,
     SELFBALANCE = 0x47,
     BASEFEE = 0x48,
-    
+
     // Stack, Memory, Storage
     POP = 0x50,
     MLOAD = 0x51,
@@ -179,26 +179,26 @@ pub enum Opcode {
     MSIZE = 0x59,
     GAS = 0x5A,
     JUMPDEST = 0x5B,
-    
+
     // Push operations (PUSH1 to PUSH32)
     PUSH1 = 0x60,
     PUSH2 = 0x61,
     PUSH3 = 0x62,
     PUSH4 = 0x63,
     PUSH32 = 0x7F,
-    
+
     // Dup operations
     DUP1 = 0x80,
     DUP16 = 0x8F,
-    
+
     // Swap operations
     SWAP1 = 0x90,
     SWAP16 = 0x9F,
-    
+
     // Log operations
     LOG0 = 0xA0,
     LOG4 = 0xA4,
-    
+
     // System operations
     CREATE = 0xF0,
     CALL = 0xF1,
@@ -280,13 +280,13 @@ impl From<u8> for Opcode {
             0x5A => Opcode::GAS,
             0x5B => Opcode::JUMPDEST,
             // PUSH operations - return PUSH1 and handle arg size separately
-            0x60..=0x7F => Opcode::PUSH1,  // Safe: all PUSHn map to PUSH1
+            0x60..=0x7F => Opcode::PUSH1, // Safe: all PUSHn map to PUSH1
             // DUP operations
-            0x80..=0x8F => Opcode::DUP1,   // Safe: all DUPn map to DUP1
-            // SWAP operations 
-            0x90..=0x9F => Opcode::SWAP1,  // Safe: all SWAPn map to SWAP1
+            0x80..=0x8F => Opcode::DUP1, // Safe: all DUPn map to DUP1
+            // SWAP operations
+            0x90..=0x9F => Opcode::SWAP1, // Safe: all SWAPn map to SWAP1
             // LOG operations
-            0xA0..=0xA4 => Opcode::LOG0,   // Safe: all LOGn map to LOG0
+            0xA0..=0xA4 => Opcode::LOG0, // Safe: all LOGn map to LOG0
             0xF0 => Opcode::CREATE,
             0xF1 => Opcode::CALL,
             0xF2 => Opcode::CALLCODE,
@@ -312,7 +312,7 @@ impl Opcode {
             0
         }
     }
-    
+
     /// Returns arg size for a raw byte (use when raw byte differs from enum value)
     pub fn arg_size_for_byte(byte: u8) -> usize {
         if byte >= 0x60 && byte <= 0x7F {
@@ -321,29 +321,31 @@ impl Opcode {
             0
         }
     }
-    
+
     /// Check if this opcode is dangerous for security
     pub fn is_dangerous(&self) -> bool {
-        matches!(self, 
-            Opcode::CALL | 
-            Opcode::CALLCODE | 
-            Opcode::DELEGATECALL |
-            Opcode::SELFDESTRUCT |
-            Opcode::CREATE |
-            Opcode::CREATE2 |
-            Opcode::SSTORE
+        matches!(
+            self,
+            Opcode::CALL
+                | Opcode::CALLCODE
+                | Opcode::DELEGATECALL
+                | Opcode::SELFDESTRUCT
+                | Opcode::CREATE
+                | Opcode::CREATE2
+                | Opcode::SSTORE
         )
     }
-    
+
     /// Check if this is a control flow opcode
     pub fn is_control_flow(&self) -> bool {
-        matches!(self,
-            Opcode::JUMP |
-            Opcode::JUMPI |
-            Opcode::STOP |
-            Opcode::RETURN |
-            Opcode::REVERT |
-            Opcode::SELFDESTRUCT
+        matches!(
+            self,
+            Opcode::JUMP
+                | Opcode::JUMPI
+                | Opcode::STOP
+                | Opcode::RETURN
+                | Opcode::REVERT
+                | Opcode::SELFDESTRUCT
         )
     }
 }
@@ -369,7 +371,7 @@ impl Instruction {
             argument,
         }
     }
-    
+
     /// Get the PUSH argument as u32 (for function selectors)
     pub fn arg_as_u32(&self) -> Option<u32> {
         self.argument.as_ref().and_then(|bytes| {
@@ -383,7 +385,7 @@ impl Instruction {
             }
         })
     }
-    
+
     /// Get selector hex string
     pub fn arg_as_selector(&self) -> Option<String> {
         self.arg_as_u32().map(|v| format!("0x{:08x}", v))
@@ -401,13 +403,13 @@ impl Disassembler {
     pub fn disassemble(bytecode: &[u8]) -> Result<Vec<Instruction>> {
         let mut instructions = Vec::new();
         let mut i = 0;
-        
+
         while i < bytecode.len() {
             let raw_byte = bytecode[i];
             let _opcode = Opcode::from(raw_byte);
             // Use raw byte for arg size since PUSHn all map to PUSH1
             let arg_size = Opcode::arg_size_for_byte(raw_byte);
-            
+
             let argument = if arg_size > 0 && i + arg_size <= bytecode.len() - 1 {
                 Some(bytecode[i + 1..i + 1 + arg_size].to_vec())
             } else if arg_size > 0 {
@@ -421,11 +423,11 @@ impl Disassembler {
             } else {
                 None
             };
-            
+
             instructions.push(Instruction::new(i, raw_byte, argument));
             i += 1 + arg_size;
         }
-        
+
         Ok(instructions)
     }
 }
@@ -457,11 +459,11 @@ impl ControlFlowGraph {
             entry: None,
             blocks: HashMap::new(),
         };
-        
+
         // Find all basic block leaders (JUMPDEST, after JUMP/JUMPI/STOP/etc)
         let mut leaders: HashSet<usize> = HashSet::new();
         leaders.insert(0); // First instruction is always a leader
-        
+
         for (idx, instr) in instructions.iter().enumerate() {
             match instr.opcode {
                 Opcode::JUMPDEST => {
@@ -480,21 +482,21 @@ impl ControlFlowGraph {
                 _ => {}
             }
         }
-        
+
         // Build basic blocks
         let mut sorted_leaders: Vec<_> = leaders.into_iter().collect();
         sorted_leaders.sort();
-        
+
         for (i, &start) in sorted_leaders.iter().enumerate() {
             let end = if i + 1 < sorted_leaders.len() {
                 sorted_leaders[i + 1]
             } else {
                 instructions.len()
             };
-            
+
             let block_instructions: Vec<_> = instructions[start..end].to_vec();
             let last_opcode = block_instructions.last().map(|i| i.opcode);
-            
+
             let block = BasicBlock {
                 start_offset: instructions[start].offset,
                 end_offset: block_instructions.last().map(|i| i.offset).unwrap_or(0),
@@ -503,18 +505,18 @@ impl ControlFlowGraph {
                 is_revert: matches!(last_opcode, Some(Opcode::REVERT)),
                 is_return: matches!(last_opcode, Some(Opcode::RETURN) | Some(Opcode::STOP)),
             };
-            
+
             let node = cfg.graph.add_node(block);
             cfg.blocks.insert(instructions[start].offset, node);
-            
+
             if start == 0 {
                 cfg.entry = Some(node);
             }
         }
-        
+
         cfg
     }
-    
+
     pub fn block_count(&self) -> usize {
         self.graph.node_count()
     }
@@ -563,19 +565,21 @@ impl SecurityAnalyzer {
         let mut has_delegatecall = false;
         let mut has_create = false;
         let mut risks = Vec::new();
-        
+
         // Look for function selectors (PUSH4 followed by EQ)
         for window in instructions.windows(2) {
             let (instr, next) = (&window[0], &window[1]);
-            if instr.raw_byte == 0x63 { // PUSH4
-                if next.raw_byte == 0x14 { // EQ
+            if instr.raw_byte == 0x63 {
+                // PUSH4
+                if next.raw_byte == 0x14 {
+                    // EQ
                     if let Some(selector) = instr.arg_as_selector() {
                         selectors.push(selector);
                     }
                 }
             }
         }
-        
+
         // Analyze each instruction
         for instr in instructions {
             match instr.opcode {
@@ -609,7 +613,8 @@ impl SecurityAnalyzer {
                     risks.push(RiskIndicator {
                         name: "Self-destruct capability".to_string(),
                         severity: "critical".to_string(),
-                        description: "Contract can be destroyed, all funds sent to owner".to_string(),
+                        description: "Contract can be destroyed, all funds sent to owner"
+                            .to_string(),
                     });
                 }
                 Opcode::CREATE | Opcode::CREATE2 => {
@@ -623,13 +628,13 @@ impl SecurityAnalyzer {
                 _ => {}
             }
         }
-        
+
         // Calculate complexity
         let cfg = ControlFlowGraph::build(instructions);
-        let complexity = (cfg.block_count() as u32 * 10) 
+        let complexity = (cfg.block_count() as u32 * 10)
             + (external_calls as u32 * 20)
             + (storage_writes as u32 * 5);
-        
+
         // Add risk indicators based on patterns
         if has_delegatecall {
             risks.push(RiskIndicator {
@@ -638,7 +643,7 @@ impl SecurityAnalyzer {
                 description: "Contract uses delegatecall - verify upgrade mechanism".to_string(),
             });
         }
-        
+
         if external_calls > 5 {
             risks.push(RiskIndicator {
                 name: "Multiple external calls".to_string(),
@@ -646,7 +651,7 @@ impl SecurityAnalyzer {
                 description: format!("{} external calls - check for reentrancy", external_calls),
             });
         }
-        
+
         SecurityAnalysis {
             function_selectors: selectors,
             dangerous_opcodes: dangerous,
@@ -683,16 +688,16 @@ impl Decompiler {
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);
         let hash = format!("0x{}", hex::encode(hasher.finalize()));
-        
+
         // Disassemble
         let instructions = Disassembler::disassemble(bytecode)?;
-        
+
         // Build CFG
         let cfg = ControlFlowGraph::build(&instructions);
-        
+
         // Security analysis
         let security = SecurityAnalyzer::analyze(&instructions);
-        
+
         Ok(DecompilerOutput {
             bytecode_hash: hash,
             bytecode_size: bytecode.len(),
@@ -710,22 +715,23 @@ impl Decompiler {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    
+
     // Initialize logging
     if args.verbose {
-        tracing_subscriber::fmt()
-            .with_env_filter("debug")
-            .init();
+        tracing_subscriber::fmt().with_env_filter("debug").init();
     }
-    
+
     // Server mode
     if args.server {
-        server::run_server(args.port).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+        server::run_server(args.port)
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         return Ok(());
     }
-    
+
     // CLI mode
-    println!(r#"
+    println!(
+        r#"
  ██████╗ ███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗
 ██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║
 ███████╗ █████╗  ██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██║
@@ -738,8 +744,9 @@ async fn main() -> anyhow::Result<()> {
   Usage:
     CLI:    sentinel-decompile --bytecode 0x...
     Server: sentinel-decompile --server --port 3000
-"#);
-    
+"#
+    );
+
     // Get bytecode
     let bytecode = if let Some(hex_str) = &args.bytecode {
         let clean = hex_str.strip_prefix("0x").unwrap_or(hex_str);
@@ -752,12 +759,12 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("❌ Provide --bytecode or --address, or use --server mode");
         return Ok(());
     };
-    
+
     println!("📊 Analyzing {} bytes of bytecode...\n", bytecode.len());
-    
+
     // Decompile
     let output = Decompiler::decompile(&bytecode)?;
-    
+
     match args.output.as_str() {
         "json" => {
             println!("{}", serde_json::to_string_pretty(&output)?);
@@ -766,18 +773,18 @@ async fn main() -> anyhow::Result<()> {
             println!("═══════════════════════════════════════════════════════════════");
             println!("                    DECOMPILATION RESULTS");
             println!("═══════════════════════════════════════════════════════════════\n");
-            
+
             println!("📋 Bytecode Hash: {}", output.bytecode_hash);
             println!("📏 Size: {} bytes", output.bytecode_size);
             println!("🔢 Instructions: {}", output.instruction_count);
             println!("🧱 Basic Blocks: {}", output.block_count);
             println!("📈 Complexity Score: {}", output.security.complexity_score);
-            
+
             println!("\n🎯 Function Selectors:");
             for sel in &output.security.function_selectors {
                 println!("   {}", sel);
             }
-            
+
             println!("\n⚠️  Risk Indicators:");
             for risk in &output.security.risk_indicators {
                 let icon = match risk.severity.as_str() {
@@ -786,9 +793,12 @@ async fn main() -> anyhow::Result<()> {
                     "medium" => "🟡",
                     _ => "🟢",
                 };
-                println!("   {} [{}] {}: {}", icon, risk.severity, risk.name, risk.description);
+                println!(
+                    "   {} [{}] {}: {}",
+                    icon, risk.severity, risk.name, risk.description
+                );
             }
-            
+
             if output.security.has_selfdestruct {
                 println!("\n🚨 CRITICAL: Contract has SELFDESTRUCT capability!");
             }
@@ -797,6 +807,6 @@ async fn main() -> anyhow::Result<()> {
             eprintln!("Unknown output format: {}", args.output);
         }
     }
-    
+
     Ok(())
 }

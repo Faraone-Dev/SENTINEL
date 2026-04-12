@@ -150,9 +150,7 @@ mod disassembler_tests {
 
     #[test]
     fn test_disassemble_common_constructor() {
-        let bytecode = vec![
-            0x60, 0x80, 0x60, 0x40, 0x52, 0x34, 0x80, 0x15,
-        ];
+        let bytecode = vec![0x60, 0x80, 0x60, 0x40, 0x52, 0x34, 0x80, 0x15];
         let result = Disassembler::disassemble(&bytecode).unwrap();
         assert_eq!(result.len(), 6);
     }
@@ -170,7 +168,7 @@ mod cfg_tests {
         let bytecode = vec![0x00];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let cfg = ControlFlowGraph::build(&instructions);
-        
+
         assert_eq!(cfg.block_count(), 1);
         assert!(cfg.entry.is_some());
     }
@@ -204,7 +202,7 @@ mod security_tests {
         let bytecode = vec![0xFF];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert!(analysis.has_selfdestruct);
         assert!(!analysis.risk_indicators.is_empty());
     }
@@ -214,7 +212,7 @@ mod security_tests {
         let bytecode = vec![0xF4];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert!(analysis.has_delegatecall);
         assert_eq!(analysis.external_calls, 1);
     }
@@ -232,14 +230,15 @@ mod security_tests {
         let bytecode = vec![0x63, 0x12, 0x34, 0x56, 0x78, 0x14];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        assert!(analysis.function_selectors.contains(&"0x12345678".to_string()));
+        assert!(analysis
+            .function_selectors
+            .contains(&"0x12345678".to_string()));
     }
 
     #[test]
     fn test_detect_multiple_selectors() {
         let bytecode = vec![
-            0x63, 0x12, 0x34, 0x56, 0x78, 0x14,
-            0x63, 0xAB, 0xCD, 0xEF, 0x00, 0x14,
+            0x63, 0x12, 0x34, 0x56, 0x78, 0x14, 0x63, 0xAB, 0xCD, 0xEF, 0x00, 0x14,
         ];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
@@ -267,7 +266,7 @@ mod security_tests {
         let bytecode = vec![0x01, 0x02, 0x03, 0x04];
         let instructions = Disassembler::disassemble(&bytecode).unwrap();
         let analysis = SecurityAnalyzer::analyze(&instructions);
-        
+
         assert!(!analysis.has_selfdestruct);
         assert!(!analysis.has_delegatecall);
         assert!(!analysis.has_create);
@@ -286,7 +285,7 @@ mod decompiler_tests {
     fn test_decompile_minimal() {
         let bytecode = vec![0x00];
         let result = Decompiler::decompile(&bytecode).unwrap();
-        
+
         assert_eq!(result.bytecode_size, 1);
         assert_eq!(result.instruction_count, 1);
         assert!(!result.bytecode_hash.is_empty());
@@ -296,7 +295,7 @@ mod decompiler_tests {
     fn test_decompile_hash() {
         let bytecode = vec![0x60, 0x80, 0x60, 0x40, 0x52];
         let result = Decompiler::decompile(&bytecode).unwrap();
-        
+
         assert!(result.bytecode_hash.starts_with("0x"));
         assert_eq!(result.bytecode_hash.len(), 66);
     }
@@ -304,14 +303,16 @@ mod decompiler_tests {
     #[test]
     fn test_decompile_real_contract() {
         let bytecode = vec![
-            0x60, 0x80, 0x60, 0x40, 0x52, 0x60, 0x04, 0x36, 0x10,
-            0x60, 0x1C, 0x57, 0x60, 0x00, 0x35, 0x60, 0xE0, 0x1C,
-            0x63, 0x09, 0x5e, 0xa7, 0xb3, 0x14,
+            0x60, 0x80, 0x60, 0x40, 0x52, 0x60, 0x04, 0x36, 0x10, 0x60, 0x1C, 0x57, 0x60, 0x00,
+            0x35, 0x60, 0xE0, 0x1C, 0x63, 0x09, 0x5e, 0xa7, 0xb3, 0x14,
         ];
         let result = Decompiler::decompile(&bytecode).unwrap();
-        
+
         assert!(result.instruction_count > 0);
-        assert!(result.security.function_selectors.contains(&"0x095ea7b3".to_string()));
+        assert!(result
+            .security
+            .function_selectors
+            .contains(&"0x095ea7b3".to_string()));
     }
 }
 
@@ -326,8 +327,16 @@ fn test_full_analysis_pipeline() {
     ).unwrap();
 
     let output = Decompiler::decompile(&bytecode).unwrap();
-    assert!(output.security.function_selectors.iter().any(|s| s == "0x40c10f19"));
-    assert!(output.security.function_selectors.iter().any(|s| s == "0x8456cb59"));
+    assert!(output
+        .security
+        .function_selectors
+        .iter()
+        .any(|s| s == "0x40c10f19"));
+    assert!(output
+        .security
+        .function_selectors
+        .iter()
+        .any(|s| s == "0x8456cb59"));
     assert!(output.security.complexity_score > 0);
 }
 

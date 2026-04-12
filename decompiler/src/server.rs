@@ -1,12 +1,13 @@
 /*
  ═══════════════════════════════════════════════════════════════════════════════
   SENTINEL SHIELD - Decompiler HTTP Server
-  
+
   Exposes the decompiler functionality via REST API for integration with
   the Go API server.
  ═══════════════════════════════════════════════════════════════════════════════
 */
 
+use axum::extract::DefaultBodyLimit;
 use axum::{
     extract::Json,
     http::StatusCode,
@@ -14,15 +15,14 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use axum::extract::DefaultBodyLimit;
 use serde::{Deserialize, Serialize};
-use tower_http::cors::{Any, CorsLayer};
-use tower_http::timeout::TimeoutLayer;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::signal;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::timeout::TimeoutLayer;
 
-use crate::{Disassembler, SecurityAnalyzer, ControlFlowGraph};
+use crate::{ControlFlowGraph, Disassembler, SecurityAnalyzer};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              REQUEST/RESPONSE TYPES
@@ -86,7 +86,7 @@ async fn health_handler() -> impl IntoResponse {
 async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoResponse {
     // Parse bytecode
     let bytecode_str = payload.bytecode.trim_start_matches("0x");
-    
+
     let bytecode = match hex::decode(bytecode_str) {
         Ok(b) => b,
         Err(e) => {
@@ -96,7 +96,8 @@ async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoRespon
                     error: "Invalid bytecode".to_string(),
                     details: Some(e.to_string()),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -107,7 +108,8 @@ async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoRespon
                 error: "Empty bytecode".to_string(),
                 details: None,
             }),
-        ).into_response();
+        )
+            .into_response();
     }
 
     // Disassemble
@@ -120,18 +122,20 @@ async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoRespon
                     error: "Disassembly failed".to_string(),
                     details: Some(e.to_string()),
                 }),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
     // Build CFG
     let cfg = ControlFlowGraph::build(&instructions);
-    
+
     // Security analysis
     let security = SecurityAnalyzer::analyze(&instructions);
 
     // Convert risk indicators
-    let risk_indicators: Vec<RiskIndicator> = security.risk_indicators
+    let risk_indicators: Vec<RiskIndicator> = security
+        .risk_indicators
         .iter()
         .map(|r| RiskIndicator {
             name: r.name.clone(),
@@ -155,7 +159,8 @@ async fn analyze_handler(Json(payload): Json<AnalyzeRequest>) -> impl IntoRespon
         warnings.push("Contract contains SELFDESTRUCT - can be destroyed".to_string());
     }
     if security.has_delegatecall {
-        warnings.push("Contract uses DELEGATECALL - potential proxy or upgrade pattern".to_string());
+        warnings
+            .push("Contract uses DELEGATECALL - potential proxy or upgrade pattern".to_string());
     }
 
     let response = AnalyzeResponse {
@@ -210,8 +215,9 @@ pub async fn run_server(port: u16) -> Result<(), Box<dyn std::error::Error + Sen
         .layer(TimeoutLayer::new(Duration::from_secs(60))); // 60s timeout
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    
-    println!(r#"
+
+    println!(
+        r#"
  ═══════════════════════════════════════════════════════════════════════════════
   ██████╗ ███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗
  ██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║
@@ -228,13 +234,15 @@ pub async fn run_server(port: u16) -> Result<(), Box<dyn std::error::Error + Sen
 
   Listening on http://{}
  ═══════════════════════════════════════════════════════════════════════════════
-"#, addr);
+"#,
+        addr
+    );
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
-    
+
     Ok(())
 }
 
