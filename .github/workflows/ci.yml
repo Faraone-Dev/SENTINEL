@@ -70,8 +70,9 @@ jobs:
       - name: Python Lint
         run: |
           pip install ruff mypy
+          pip install -r analyzer/requirements.txt
           ruff check analyzer/
-          mypy analyzer/src
+          cd analyzer && mypy --ignore-missing-imports src/
 
       # Frontend
       - name: Setup Node
