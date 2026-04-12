@@ -42,7 +42,7 @@ func loadEnvFile(path string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -58,7 +58,7 @@ func loadEnvFile(path string) error {
 			value := strings.TrimSpace(parts[1])
 			// Only set if not already set (env vars take precedence)
 			if os.Getenv(key) == "" {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 		}
 	}
@@ -664,7 +664,7 @@ func (c *ChainClient) getApprovalsAlchemy(ctx context.Context, walletAddress str
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	var rpcResp struct {
 		Result []struct {
@@ -782,9 +782,9 @@ func (c *ChainClient) getApprovalsEtherscan(ctx context.Context, walletAddress s
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Etherscan API call failed: %w", err)
+		return nil, fmt.Errorf("etherscan API call failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	// Use RawMessage to handle both array and string responses
 	var rawResp struct {
@@ -960,7 +960,7 @@ func (c *ChainClient) fetchTokenSymbol(tokenAddress string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	var rpcResp struct {
 		Result string `json:"result"`
@@ -1031,33 +1031,9 @@ func getSpenderInfo(spenderAddress string) (string, string) {
 	return "Unknown Contract", "warning"
 }
 
-// Known token decimals (non-standard tokens)
-var tokenDecimals = map[string]int{
-	// 6 decimal tokens
-	"0xdac17f958d2ee523a2206206994597c13d831ec7": 6, // USDT
-	"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 6, // USDC
-	"0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6, // USDC (Base)
-	// 8 decimal tokens
-	"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": 8, // WBTC
-}
-
-// getTokenDecimals returns the decimals for a token (default 18)
-func getTokenDecimals(tokenAddress string) int {
-	if decimals, ok := tokenDecimals[strings.ToLower(tokenAddress)]; ok {
-		return decimals
-	}
-	return 18 // Standard ERC20 default
-}
-
 // formatAllowance converts big.Int to human-readable format
-// Uses default 18 decimals - for token-specific decimals use formatAllowanceForToken
 func formatAllowance(amount *big.Int) string {
 	return formatAllowanceWithDecimals(amount, 18)
-}
-
-// formatAllowanceForToken converts big.Int to human-readable format with token-specific decimals
-func formatAllowanceForToken(amount *big.Int, tokenAddress string) string {
-	return formatAllowanceWithDecimals(amount, getTokenDecimals(tokenAddress))
 }
 
 // formatAllowanceWithDecimals converts big.Int to human-readable format with specific decimals
@@ -1115,7 +1091,7 @@ func (c *ChainClient) GetContractBytecode(ctx context.Context, contractAddress s
 	if err != nil {
 		return nil, fmt.Errorf("RPC call failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	var rpcResp struct {
 		Result string `json:"result"`
@@ -1421,7 +1397,7 @@ func (d *DecompilerClient) Analyze(ctx context.Context, bytecode []byte) (*Decom
 	if err != nil {
 		return nil, fmt.Errorf("decompiler request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -1500,7 +1476,7 @@ func (a *AnalyzerClient) Analyze(ctx context.Context, address string, chain stri
 	if err != nil {
 		return nil, fmt.Errorf("analyzer request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -1832,7 +1808,7 @@ func rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			ip = r.RemoteAddr
 		}
 
-		allowed := true
+		var allowed bool
 
 		// Try Redis-based distributed rate limiter first
 		if globalRedis != nil {
@@ -2281,9 +2257,9 @@ func main() {
 
 	// Cleanup
 	if server.db != nil {
-		server.db.Close()
+		_ = server.db.Close()
 	}
 	if server.redis != nil {
-		server.redis.Close()
+		_ = server.redis.Close()
 	}
 }

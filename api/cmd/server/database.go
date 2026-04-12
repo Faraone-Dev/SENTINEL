@@ -43,7 +43,7 @@ func NewDB() (*DB, error) {
 	defer cancel()
 
 	if err := conn.PingContext(ctx); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("postgres ping: %w", err)
 	}
 
@@ -112,7 +112,7 @@ func (db *DB) GetRecentScans(ctx context.Context, wallet string, limit int) ([]W
 	if err != nil {
 		return nil, fmt.Errorf("query scan_history: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var results []WalletScanResult
 	for rows.Next() {

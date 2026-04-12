@@ -77,7 +77,7 @@ func isValidAddressFuzz(addr string) bool {
 		return false
 	}
 	for _, c := range addr[2:] {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) { //nolint:staticcheck
 			return false
 		}
 	}
@@ -164,7 +164,7 @@ func TestFuzz_InvalidAddresses_InvalidChars(t *testing.T) {
 			addr = addr[:rng.Int(3, 41)] + string(invalidChars[rng.Int(0, len(invalidChars)-1)]) + addr[rng.Int(3, 41):]
 			// Trim to 42 chars
 			if len(addr) > 42 {
-				addr = addr[:42]
+				addr = addr[:42] //nolint:staticcheck
 			}
 			// This should now be invalid (contains non-hex)
 		})
@@ -774,7 +774,7 @@ func TestFuzz_ErrorCategorization(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprintf("ErrorCat_%d", i), func(t *testing.T) {
 			msg := errorMessages[rng.Int(0, len(errorMessages)-1)]
-			err := fmt.Errorf(msg)
+			err := fmt.Errorf("%s", msg)
 			cat := categorizeError(err)
 			
 			// Just verify it returns a valid category

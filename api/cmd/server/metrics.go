@@ -106,6 +106,8 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 // handleMetrics serves Prometheus-compatible /metrics endpoint.
+//
+//nolint:errcheck
 func handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 

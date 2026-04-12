@@ -53,7 +53,7 @@ func TestHandleScanFiltersChains(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -91,7 +91,7 @@ func TestHandleScanRejectsInvalidChains(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", resp.StatusCode)

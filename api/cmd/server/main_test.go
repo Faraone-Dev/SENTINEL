@@ -197,7 +197,7 @@ func TestHandler_Health(t *testing.T) {
 	}
 
 	var response map[string]string
-	json.NewDecoder(w.Body).Decode(&response)
+	_ = json.NewDecoder(w.Body).Decode(&response)
 
 	if response["status"] != "healthy" {
 		t.Errorf("Expected status 'healthy', got '%s'", response["status"])
@@ -217,7 +217,7 @@ func TestHandler_Chains(t *testing.T) {
 	}
 
 	var response map[string][]ChainID
-	json.NewDecoder(w.Body).Decode(&response)
+	_ = json.NewDecoder(w.Body).Decode(&response)
 
 	if len(response["chains"]) == 0 {
 		t.Error("Expected chains to be returned")
@@ -250,7 +250,7 @@ func TestHandler_Scan_ValidWallet(t *testing.T) {
 	}
 
 	var result WalletScanResult
-	json.NewDecoder(w.Body).Decode(&result)
+	_ = json.NewDecoder(w.Body).Decode(&result)
 
 	if result.WalletAddress == "" {
 		t.Error("Expected wallet address in response")
@@ -464,7 +464,7 @@ func TestNewContractAnalyzer(t *testing.T) {
 	analyzer := NewContractAnalyzer(clients)
 
 	if analyzer == nil {
-		t.Error("Expected non-nil ContractAnalyzer")
+		t.Fatal("Expected non-nil ContractAnalyzer")
 	}
 	if analyzer.decompiler == nil {
 		t.Error("Expected decompiler client to be initialized")

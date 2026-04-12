@@ -424,7 +424,7 @@ func TestJSON_InvalidRequests(t *testing.T) {
 func TestJSON_MissingFields(t *testing.T) {
 	t.Run("MissingAddress", func(t *testing.T) {
 		var req TestScanRequest
-		json.Unmarshal([]byte(`{"chains":["ethereum"]}`), &req)
+		_ = json.Unmarshal([]byte(`{"chains":["ethereum"]}`), &req)
 		if req.Address != "" {
 			t.Error("Expected empty address")
 		}
@@ -432,7 +432,7 @@ func TestJSON_MissingFields(t *testing.T) {
 
 	t.Run("MissingChains", func(t *testing.T) {
 		var req TestScanRequest
-		json.Unmarshal([]byte(`{"address":"0x123"}`), &req)
+		_ = json.Unmarshal([]byte(`{"address":"0x123"}`), &req)
 		if req.Chains != nil {
 			t.Error("Expected nil chains")
 		}
