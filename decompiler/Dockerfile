@@ -5,7 +5,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Stage 1: Build
-FROM rust:1.75-alpine AS builder
+FROM rust:1.83-alpine AS builder
 
 WORKDIR /app
 
