@@ -595,7 +595,7 @@ const App: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-gray-800 py-8 bg-slate-900">
         <div className="max-w-7xl mx-auto px-6 text-center text-gray-500">
-          <p>Built by SENTINEL Team</p>
+          <p>Built by Faraone-Dev</p>
           <p className="text-sm mt-2">
             SENTINEL SHIELD - 16-Chain Wallet Security Scanner &amp; Contract Analyzer
           </p>

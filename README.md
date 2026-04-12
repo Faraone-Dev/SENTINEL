@@ -350,7 +350,7 @@ GitHub Actions runs on every push to `main`/`develop` and on PRs:
 ---
 
 <p align="center">
-  <strong>SENTINEL Team</strong> &mdash; <a href="https://github.com/Faraone-Dev">@Faraone-Dev</a><br/>
+  <strong>Faraone-Dev</strong> &mdash; <a href="https://github.com/Faraone-Dev">@Faraone-Dev</a><br/>
   Go · Rust · Python · Solidity · Yul · TypeScript
 </p>
 

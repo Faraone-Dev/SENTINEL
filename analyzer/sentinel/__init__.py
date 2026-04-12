@@ -14,7 +14,7 @@ Modules:
 
 __version__ = "2.0.0"
 __codename__ = "SHIELD"
-__author__ = "SENTINEL Team"
+__author__ = "Faraone-Dev"
 
 from sentinel.engine import (
     SentinelSecurityEngine,

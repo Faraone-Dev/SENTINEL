@@ -7,7 +7,7 @@
 # ╚══════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 #
 #  SENTINEL SHIELD - Build & Development Makefile
-#  Author: SENTINEL Team
+#  Author: Faraone-Dev
 # ═══════════════════════════════════════════════════════════════════════════════
 
 .PHONY: all build run test clean docker-build docker-up docker-down help

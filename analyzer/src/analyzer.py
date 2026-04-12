@@ -7,7 +7,7 @@
 ╚══════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 
 SENTINEL SHIELD - Heuristic Vulnerability Pattern Analyzer
-Author: SENTINEL Team
+Author: Faraone-Dev
 
 This module provides intelligent pattern detection for:
 - Honeypot tokens

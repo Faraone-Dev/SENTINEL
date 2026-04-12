@@ -14,7 +14,7 @@
 name = "sentinel-decompiler"
 version = "0.1.0"
 edition = "2021"
-authors = ["SENTINEL Team"]
+authors = ["Faraone-Dev"]
 description = "High-performance EVM bytecode decompiler for security analysis"
 license = "MIT"
 repository = "https://github.com/sentinel"

@@ -1,7 +1,7 @@
 """
 ═══════════════════════════════════════════════════════════════════════════════
  SENTINEL SHIELD - pytest configuration and shared fixtures
- Author: SENTINEL Team
+ Author: Faraone-Dev
 ═══════════════════════════════════════════════════════════════════════════════
 """
 

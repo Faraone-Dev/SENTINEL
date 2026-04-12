@@ -2,7 +2,7 @@
 ═══════════════════════════════════════════════════════════════════════════════
  SENTINEL SHIELD - Python Analyzer Tests (Simplified)
  Standalone test suite that works without full dependencies
- Author: SENTINEL Team
+ Author: Faraone-Dev
 ═══════════════════════════════════════════════════════════════════════════════
 """
 

@@ -6,7 +6,7 @@ import {SentinelRegistry} from "../src/SentinelRegistry.sol";
 
 /**
  * @title SentinelRegistryTest
- * @author SENTINEL Team
+ * @author Faraone-Dev
  * @notice Comprehensive test suite for SentinelRegistry
  */
 contract SentinelRegistryTest is Test {

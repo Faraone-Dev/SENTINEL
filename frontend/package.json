@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "SENTINEL SHIELD - Multi-chain Wallet Security Scanner Frontend",
-  "author": "SENTINEL Team",
+  "author": "Faraone-Dev",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

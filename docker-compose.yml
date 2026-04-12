@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #  SENTINEL SHIELD - Docker Compose Configuration
 #  Multi-container setup for the full stack
-#  Author: SENTINEL Team
+#  Author: Faraone-Dev
 # ═══════════════════════════════════════════════════════════════════════════════
 
 version: '3.9'

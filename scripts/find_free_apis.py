@@ -10,7 +10,7 @@
 SENTINEL SHIELD - Free API Finder & Tester
 Trova tutte le API gratuite per scan di approvazioni EVM
 
-Author: SENTINEL Team
+Author: Faraone-Dev
 """
 
 import asyncio

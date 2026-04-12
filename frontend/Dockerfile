@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #  SENTINEL SHIELD - React Frontend Dockerfile
 #  Multi-stage build with nginx
-#  Author: SENTINEL Team
+#  Author: Faraone-Dev
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Stage 1: Build

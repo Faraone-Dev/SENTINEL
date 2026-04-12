@@ -2,7 +2,7 @@
  ═══════════════════════════════════════════════════════════════════════════════
   SENTINEL SHIELD - Rust Decompiler Tests
   Comprehensive test suite for bytecode analysis
-  Author: SENTINEL Team
+  Author: Faraone-Dev
  ═══════════════════════════════════════════════════════════════════════════════
 */
 

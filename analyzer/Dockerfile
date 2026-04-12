@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #  SENTINEL SHIELD - Python Analyzer Dockerfile
 #  Multi-stage build for minimal image
-#  Author: SENTINEL Team
+#  Author: Faraone-Dev
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Stage 1: Build dependencies

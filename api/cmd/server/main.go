@@ -9,7 +9,7 @@
 SENTINEL SHIELD - Multi-chain Wallet Security Scanner
 API Server (Go)
 
-Author: SENTINEL Team
+Author: Faraone-Dev
 */
 
 package main

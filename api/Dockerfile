@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #  SENTINEL SHIELD - Go API Server Dockerfile
 #  Multi-stage build for minimal image size
-#  Author: SENTINEL Team
+#  Author: Faraone-Dev
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Stage 1: Build

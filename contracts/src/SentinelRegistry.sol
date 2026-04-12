@@ -23,12 +23,12 @@ pragma solidity ^0.8.24;
  ║  - Gas-optimized using inline assembly                                    ║
  ║  - No admin keys, fully permissionless                                    ║
  ║                                                                           ║
- ║  Author: SENTINEL Team                                                      ║
+ ║  Author: Faraone-Dev                                                      ║
  ╚═══════════════════════════════════════════════════════════════════════════╝
 */
 
 /// @title SentinelRegistry - Multi-standard approval revocation
-/// @author SENTINEL Team
+/// @author Faraone-Dev
 /// @notice Batch revoke token approvals across ERC20, ERC721, ERC1155
 /// @dev Uses inline Yul for gas optimization
 contract SentinelRegistry {

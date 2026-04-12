@@ -43,7 +43,7 @@ mod omni_tests;
 
 #[derive(Parser, Debug)]
 #[command(name = "sentinel-decompile")]
-#[command(author = "SENTINEL Team")]
+#[command(author = "Faraone-Dev")]
 #[command(version = "1.0.0")]
 #[command(about = "EVM bytecode decompiler for security analysis")]
 struct Args {

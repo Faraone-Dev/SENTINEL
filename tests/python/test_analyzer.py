@@ -2,7 +2,7 @@
 ═══════════════════════════════════════════════════════════════════════════════
  SENTINEL SHIELD - Python Analyzer Tests
  Comprehensive test suite for vulnerability detection
- Author: SENTINEL Team
+ Author: Faraone-Dev
 ═══════════════════════════════════════════════════════════════════════════════
 """
 

@@ -2,7 +2,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  SENTINEL SHIELD - React Frontend Tests
  *  Comprehensive test suite with Vitest
- *  SENTINEL Team
+ *  Faraone-Dev
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 

@@ -9,7 +9,7 @@
 SENTINEL SHIELD - Analyzer HTTP Server
 FastAPI server exposing the vulnerability analyzer for integration with Go API
 
-Author: SENTINEL Team
+Author: Faraone-Dev
 """
 
 import os

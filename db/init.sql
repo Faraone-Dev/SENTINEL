@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
 --  SENTINEL SHIELD - Database Schema
 --  PostgreSQL initialization script
---  Author: SENTINEL Team
+--  Author: Faraone-Dev
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 -- Create extensions

@@ -1,5 +1,5 @@
 # SENTINEL SHIELD - Python Analyzer Dependencies
-# Author: SENTINEL Team
+# Author: Faraone-Dev
 
 # Core
 asyncio-throttle>=1.0.2

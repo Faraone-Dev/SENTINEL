@@ -6,7 +6,7 @@ import {SentinelRegistry} from "../src/SentinelRegistry.sol";
 
 /**
  * @title DeployScript
- * @author SENTINEL Team
+ * @author Faraone-Dev
  * @notice Deployment script for SENTINEL SHIELD contracts
  */
 contract DeployScript is Script {
