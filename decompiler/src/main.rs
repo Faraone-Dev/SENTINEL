@@ -306,7 +306,7 @@ impl Opcode {
     /// Returns how many bytes this opcode's argument takes based on the raw byte
     pub fn arg_size(&self) -> usize {
         let byte = *self as u8;
-        if byte >= 0x60 && byte <= 0x7F {
+        if (0x60..=0x7F).contains(&byte) {
             (byte - 0x5F) as usize
         } else {
             0
@@ -315,7 +315,7 @@ impl Opcode {
 
     /// Returns arg size for a raw byte (use when raw byte differs from enum value)
     pub fn arg_size_for_byte(byte: u8) -> usize {
-        if byte >= 0x60 && byte <= 0x7F {
+        if (0x60..=0x7F).contains(&byte) {
             (byte - 0x5F) as usize
         } else {
             0
