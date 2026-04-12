@@ -35,7 +35,7 @@ jobs:
           cache: true
           cache-dependency-path: api/go.mod
       - name: Go Lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v7
         with:
           working-directory: api
           args: --timeout=5m
