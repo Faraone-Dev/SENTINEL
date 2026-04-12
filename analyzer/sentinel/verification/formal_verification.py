@@ -7,9 +7,9 @@
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Optional, Tuple, Any, Set, Callable
+from typing import List, Dict, Optional, Any
 import subprocess
 import shutil
 import json
@@ -690,7 +690,7 @@ class FormalVerificationEngine:
         
         # Summary
         report += "## Summary\n\n"
-        report += f"| Status | Count |\n|--------|-------|\n"
+        report += "| Status | Count |\n|--------|-------|\n"
         for status, count in summary["by_status"].items():
             emoji = {"verified": "✅", "violated": "❌", "unknown": "❓", "timeout": "⏰", "error": "⚠️"}
             report += f"| {emoji.get(status, '')} {status.capitalize()} | {count} |\n"

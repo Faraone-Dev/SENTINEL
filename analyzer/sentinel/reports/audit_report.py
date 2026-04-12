@@ -9,7 +9,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 import json
 import hashlib
 from pathlib import Path
@@ -228,7 +228,7 @@ time of audit was {self.metadata.test_coverage:.1f}%.
     
     def generate_methodology_section(self) -> str:
         """Generate methodology section."""
-        return f"""
+        return """
 ## Methodology
 
 ### Audit Approach
@@ -348,7 +348,7 @@ The following contracts were in scope for this audit:
     
     def generate_appendix(self) -> str:
         """Generate appendix with additional information."""
-        return f"""
+        return """
 ## Appendix
 
 ### A. Severity Classification

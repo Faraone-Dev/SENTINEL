@@ -20,10 +20,9 @@ This module provides intelligent pattern detection for:
 import json
 import asyncio
 import hashlib
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Optional, Any
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional
 from enum import Enum
-from pathlib import Path
 import logging
 
 # ═══════════════════════════════════════════════════════════════════════════════

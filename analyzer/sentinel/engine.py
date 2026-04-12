@@ -587,7 +587,7 @@ if __name__ == "__main__":
     print("📊 SENTINEL Security Engine Initialized")
     print(f"   Version: {engine.VERSION}")
     print(f"   Codename: {engine.CODENAME}")
-    print(f"\n🔧 Active Modules:")
+    print("\n🔧 Active Modules:")
     
     for name, module in engine.modules.items():
         status = "✅ Loaded" if module else "❌ Not available"

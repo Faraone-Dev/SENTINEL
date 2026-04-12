@@ -272,7 +272,7 @@ class SlitherIntegration:
         # Summary
         summary = self.get_severity_summary(findings)
         report += "## Summary\n\n"
-        report += f"| Severity | Count |\n|----------|-------|\n"
+        report += "| Severity | Count |\n|----------|-------|\n"
         for severity, count in summary.items():
             if count > 0:
                 report += f"| {severity.capitalize()} | {count} |\n"

@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 # Import analyzer
-from analyzer import AnalyzerService, VulnerabilityAnalyzer
+from analyzer import AnalyzerService
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #                              LOGGING SETUP

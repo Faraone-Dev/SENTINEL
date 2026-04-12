@@ -9,8 +9,7 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict, Optional, Tuple, Any, Set
-from datetime import datetime
+from typing import List, Dict, Optional, Any
 
 
 class BridgeType(Enum):
@@ -611,7 +610,7 @@ class CrossChainBridgeAnalyzer:
         # Summary
         summary = self._generate_summary()
         report += "## Vulnerability Summary\n\n"
-        report += f"| Risk Level | Count |\n|------------|-------|\n"
+        report += "| Risk Level | Count |\n|------------|-------|\n"
         for risk, count in summary["by_risk"].items():
             if count > 0:
                 report += f"| {risk.capitalize()} | {count} |\n"

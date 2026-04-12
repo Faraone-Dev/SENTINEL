@@ -8,10 +8,8 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict, Optional, Set, Tuple
+from typing import List, Dict, Optional
 from decimal import Decimal
-import re
-import json
 
 
 class MEVType(Enum):

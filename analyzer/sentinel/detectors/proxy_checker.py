@@ -9,8 +9,7 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict, Optional, Tuple, Any
-from pathlib import Path
+from typing import List, Dict, Optional, Any
 
 
 class ProxyType(Enum):
@@ -304,7 +303,7 @@ class ProxySafetyChecker:
             r"^\s*(uint\d*|int\d*|address|bool|bytes\d*|string|mapping)[^;]*;",
             re.MULTILINE
         )
-        state_vars = state_var_pattern.findall(code)
+        _state_vars = state_var_pattern.findall(code)
         
         # Check for inheritance without gaps
         inheritance_pattern = re.compile(r"contract\s+\w+\s+is\s+([\w\s,]+)\s*\{")
@@ -370,7 +369,6 @@ class ProxySafetyChecker:
         functions = func_pattern.findall(code)
         
         # Calculate selectors
-        from hashlib import sha3_256
         try:
             from Crypto.Hash import keccak
             
@@ -564,7 +562,7 @@ class ProxySafetyChecker:
         # Summary
         summary = self._generate_summary()
         report += "## Summary\n\n"
-        report += f"| Risk Level | Count |\n|------------|-------|\n"
+        report += "| Risk Level | Count |\n|------------|-------|\n"
         for risk, count in summary["by_risk"].items():
             if count > 0:
                 report += f"| {risk.capitalize()} | {count} |\n"
