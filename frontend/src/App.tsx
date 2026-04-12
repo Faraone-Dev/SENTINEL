@@ -88,7 +88,7 @@ const App: React.FC = () => {
     if (isConnected && connectedAddress && !walletAddress) {
       setWalletAddress(connectedAddress);
     }
-  }, [isConnected, connectedAddress]);
+  }, [isConnected, connectedAddress, walletAddress]);
 
   // ── Scan wallet ──────────────────────────────────────────────────────────
   const performScan = useCallback(
@@ -212,8 +212,8 @@ const App: React.FC = () => {
             recommendations: summary.recommendations,
           };
         });
-      } catch (err: any) {
-        const msg = err?.shortMessage || err?.message || 'Revoke transaction failed';
+      } catch (err: unknown) {
+        const msg = (err as Record<string, string>)?.shortMessage || (err as Error)?.message || 'Revoke transaction failed';
         setError(`Revoke failed: ${msg}`);
         console.error('Revoke failed:', err);
       } finally {
