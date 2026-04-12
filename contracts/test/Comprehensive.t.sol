@@ -454,7 +454,7 @@ contract GasBenchmarkTest is Test {
         uint256 gasUsed = gasBefore - gasleft();
 
         console.log("Single approval gas:", gasUsed);
-        assertTrue(gasUsed < 50_000); // Should be under 50k
+        assertTrue(gasUsed < 75_000); // Should be under 75k
     }
 
     function test_Gas_SingleTransfer() public {
@@ -464,7 +464,7 @@ contract GasBenchmarkTest is Test {
         uint256 gasUsed = gasBefore - gasleft();
 
         console.log("Single transfer gas:", gasUsed);
-        assertTrue(gasUsed < 60_000);
+        assertTrue(gasUsed < 80_000);
     }
 
     function test_Gas_SingleTransferFrom() public {

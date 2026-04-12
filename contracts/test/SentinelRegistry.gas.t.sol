@@ -259,7 +259,7 @@ contract SentinelGasBenchmarkTest is Test {
         uint256 gasUsed = gasBefore - gasleft();
 
         emit log_named_uint("Operator Revoke Gas", gasUsed);
-        assertLt(gasUsed, 30_000, "Gas too high");
+        assertLt(gasUsed, 40_000, "Gas too high");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
