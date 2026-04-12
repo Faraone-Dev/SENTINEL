@@ -135,7 +135,7 @@ func BenchmarkScanner_SingleChain(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = scanner.Scan(context.Background(), addr, chains)
+		_, _ = scanner.Scan(context.Background(), addr, chains)
 	}
 }
 
@@ -154,7 +154,7 @@ func BenchmarkScanner_MultiChain(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = scanner.Scan(context.Background(), addr, chains)
+		_, _ = scanner.Scan(context.Background(), addr, chains)
 	}
 }
 
@@ -178,7 +178,7 @@ func BenchmarkScanner_AllChains(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = scanner.Scan(context.Background(), addr, chains)
+		_, _ = scanner.Scan(context.Background(), addr, chains)
 	}
 }
 
@@ -195,7 +195,7 @@ func BenchmarkScanner_Parallel(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = scanner.Scan(context.Background(), addr, chains)
+			_, _ = scanner.Scan(context.Background(), addr, chains)
 		}
 	})
 }
