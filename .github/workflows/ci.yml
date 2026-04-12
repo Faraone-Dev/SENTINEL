@@ -154,7 +154,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov pytest-asyncio
           # Run tests from tests/python/ directory
-          pytest -v ../tests/python/ --cov=src --cov-report=xml
+          PYTHONPATH=. pytest -v ../tests/python/ --cov=src --cov-report=xml
       - name: Upload Python Coverage
         uses: codecov/codecov-action@v4
         with:
@@ -358,7 +358,7 @@ jobs:
       - name: Rust Security Audit
         run: |
           cargo install cargo-audit
-          cargo audit --file decompiler/Cargo.toml
+          cd decompiler && cargo generate-lockfile && cargo audit
 
       - name: Python Safety Check
         run: |

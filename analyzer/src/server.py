@@ -24,7 +24,10 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 # Import analyzer
-from analyzer import AnalyzerService
+try:
+    from analyzer import AnalyzerService
+except ImportError:
+    from .analyzer import AnalyzerService
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #                              LOGGING SETUP
@@ -280,7 +283,6 @@ def main():
         workers=workers,
         reload=False,
         log_level="info",
-        limit_max_request_size=1_048_576,  # 1MB max request body
     )
 
 if __name__ == "__main__":
